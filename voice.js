@@ -27,6 +27,12 @@ function log(msg) {
   console.log(`[gymbro] ${msg}`);
 }
 
+function setStartButton(on) {
+  $("start").classList.toggle("on", on);
+  $("start").setAttribute("aria-pressed", String(on));
+  $("startLabel").textContent = on ? "Stop" : "Start listening";
+}
+
 function setState(kind, text, hint) {
   $("status").className = `status ${kind}`;
   $("state").textContent = text;
@@ -71,16 +77,12 @@ function speak(text) {
 }
 
 async function keepAwake() {
-  if (!("wakeLock" in navigator)) {
-    $("fWake").textContent = "not supported";
-    return;
-  }
+  if (!("wakeLock" in navigator)) return log("wake lock not supported");
   try {
     wakeLock = await navigator.wakeLock.request("screen");
-    $("fWake").textContent = "on";
-    wakeLock.addEventListener("release", () => ($("fWake").textContent = "released"));
+    log("wake lock on");
   } catch (e) {
-    $("fWake").textContent = `failed (${e.name})`;
+    log(`wake lock failed (${e.name})`);
   }
 }
 
@@ -96,8 +98,9 @@ function stripWake(text) {
 }
 
 // Returns the command text if this phrase is addressed to GymBro, else null.
-function extractCommand(phrase) {
-  if (holdToTalk) return stripWake(phrase) || null;
+// `direct` input (typed sets) doesn't need the wake word, like hold-to-talk.
+function extractCommand(phrase, direct = false) {
+  if (holdToTalk || direct) return stripWake(phrase) || null;
   const m = phrase.match(WAKE);
   const wordsBefore = m ? phrase.slice(0, m.index).trim().split(/\s+/).filter(Boolean).length : Infinity;
   if (m && wordsBefore <= MAX_WORDS_BEFORE_WAKE) {
@@ -154,10 +157,10 @@ function answerWeight(phrase, source) {
   return true;
 }
 
-function handlePhrase(phrase, source) {
+function handlePhrase(phrase, source, direct = false) {
   log(`heard (${source}): "${phrase}"`);
   if (answerWeight(phrase, source)) return;
-  const heard = extractCommand(phrase);
+  const heard = extractCommand(phrase, direct);
   if (!heard) {
     if (Date.now() >= awaitingCommandUntil && wantListening && !pendingWeight) setState("listening", "Listening", 'Say "GymBro, …"');
     return;
@@ -219,7 +222,7 @@ function buildRecognizer() {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
       wantListening = false;
       setState("error", "Mic blocked", "Allow microphone access for this site, then tap Start");
-      $("start").textContent = "Start listening";
+      setStartButton(false);
     }
   };
 
@@ -228,7 +231,6 @@ function buildRecognizer() {
     log("recognizer ended");
     if (!wantListening && !holdToTalk) return;
     restarts++;
-    $("fRestarts").textContent = restarts;
     const ranFor = Date.now() - lastStart;
     setTimeout(startRecognizer, ranFor < 1000 ? 1000 : 150); // back off if it keeps dying
   };
@@ -248,14 +250,12 @@ function startRecognizer() {
 
 // ---------- controls ----------
 
-$("fSpeech").textContent = SpeechRecognition ? "supported" : "NOT supported (use Chrome on Android)";
-
 if (SpeechRecognition) {
   recognizer = buildRecognizer();
   $("talk").disabled = false;
 } else {
   $("start").disabled = true;
-  setState("error", "No speech support", "Open this page in Chrome. You can still use Type instead.");
+  setState("error", "No speech support", "Open this page in Chrome. You can still type a set.");
 }
 
 $("start").addEventListener("click", () => {
@@ -264,12 +264,12 @@ $("start").addEventListener("click", () => {
   if (wantListening) {
     wantListening = false;
     recognizer.stop();
-    $("start").textContent = "Start listening";
+    setStartButton(false);
     setState("idle", "Paused", "Tap Start to listen again");
     return;
   }
   wantListening = true;
-  $("start").textContent = "Stop";
+  setStartButton(true);
   setState("listening", "Listening", 'Say "GymBro, …"');
   keepAwake();
   startRecognizer();
@@ -305,15 +305,8 @@ $("typed").addEventListener("submit", (e) => {
   if (!text) return;
   audioCtx ??= new AudioContext();
   audioCtx.resume();
-  handlePhrase(text, "typed");
+  handlePhrase(text, "typed", true);
   $("typedText").value = "";
 });
-
-$("testPing").addEventListener("click", () => {
-  audioCtx ??= new AudioContext();
-  audioCtx.resume();
-  ping();
-});
-$("testSpeak").addEventListener("click", () => speak("Logged that. You're currently on 25 kilos and your best is 11 reps."));
 
 log("page loaded");
