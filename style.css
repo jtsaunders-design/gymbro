@@ -56,7 +56,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; 
 .layout {
   max-width: 1120px;
   margin: 0 auto;
-  padding: calc(12px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom));
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(140px + env(safe-area-inset-bottom));
   display: grid;
   gap: 32px;
 }
@@ -156,54 +156,68 @@ h1 { margin: 2px 0 0; font-size: 34px; font-weight: 700; letter-spacing: -0.02em
 .commands li small { display: block; margin-top: 2px; font-size: 12px; color: var(--text-2); }
 .commands .empty { color: var(--text-2); padding: 0; }
 
-/* ---------- floating buttons, bottom left ---------- */
+/* ---------- round controls, bottom right (Control Center style) ---------- */
 
-/* soft fade so the list doesn't collide with the buttons */
+/* soft fade so the list doesn't collide with the controls */
 body::after {
   content: ""; position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; pointer-events: none;
-  height: calc(96px + env(safe-area-inset-bottom));
-  background: linear-gradient(to bottom, transparent, var(--bg) 70%);
+  height: calc(120px + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent, var(--bg) 65%);
 }
 
 .dock {
   position: fixed; z-index: 10;
-  left: calc(16px + env(safe-area-inset-left));
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  display: flex; gap: 10px;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display: flex; align-items: flex-end; gap: 14px;
 }
-.fab {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 52px; padding: 0 20px; border: 0; border-radius: 26px;
-  font-size: 17px; font-weight: 600; white-space: nowrap; cursor: pointer;
-  box-shadow: var(--shadow);
+.ctl { display: grid; justify-items: center; gap: 6px; }
+.ctl-label { font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+
+.round {
+  width: 64px; height: 64px; border: 0; border-radius: 50%; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--glass); color: var(--text);
+  box-shadow: var(--shadow), inset 0 0 0 0.5px var(--sep);
   -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   touch-action: none; user-select: none; -webkit-user-select: none;
-  transition: transform 0.15s ease, background-color 0.2s ease;
+  transition: transform 0.15s ease, background-color 0.2s ease, color 0.2s ease;
 }
-.fab svg { width: 22px; height: 22px; }
-.fab:active { transform: scale(0.96); }
-.fab:disabled { opacity: 0.4; cursor: default; }
-.fab.primary { background: var(--blue); color: #fff; }
-.fab.primary.on { background: var(--red); animation: glow 1.8s infinite; }
-.fab.secondary { background: var(--glass); color: var(--text); box-shadow: var(--shadow), inset 0 0 0 0.5px var(--sep); }
-.fab.secondary.held { background: var(--green); color: #fff; }
+.round svg { width: 28px; height: 28px; }
+.round:active { transform: scale(0.94); }
+.round:disabled { opacity: 0.4; cursor: default; }
+
+/* switches: off = frosted glass, on = filled */
+.toggle .if-on { display: none; }
+.toggle.on .if-on { display: block; }
+.toggle.on .if-off { display: none; }
+.toggle.on { background: var(--blue); color: #fff; }
+.toggle.mic.on { background: var(--green); animation: glow 1.8s infinite; }
+
+/* hold to talk: the biggest target, under the thumb */
+.round.big { width: 80px; height: 80px; background: var(--blue); color: #fff; }
+.round.big svg { width: 34px; height: 34px; }
+.round.big.held { background: var(--green); transform: scale(1.06); }
+
 @keyframes glow {
-  0%, 100% { box-shadow: var(--shadow), 0 0 0 0 color-mix(in srgb, var(--red) 45%, transparent); }
-  50% { box-shadow: var(--shadow), 0 0 0 8px color-mix(in srgb, var(--red) 0%, transparent); }
+  0%, 100% { box-shadow: var(--shadow), 0 0 0 0 color-mix(in srgb, var(--green) 50%, transparent); }
+  50% { box-shadow: var(--shadow), 0 0 0 10px color-mix(in srgb, var(--green) 0%, transparent); }
 }
 
-/* small phones: tighter dock so both buttons fit */
+/* small phones: slightly smaller controls, still well above the 44pt minimum */
 @media (max-width: 400px) {
   .layout { gap: 24px; }
   h1 { font-size: 30px; }
-  .dock { left: calc(12px + env(safe-area-inset-left)); right: calc(12px + env(safe-area-inset-right)); gap: 8px; }
-  .fab { flex: 1; justify-content: center; height: 50px; padding: 0 12px; font-size: 16px; gap: 6px; }
-  .fab svg { width: 20px; height: 20px; }
+  .dock { right: calc(12px + env(safe-area-inset-right)); gap: 12px; }
+  .round { width: 58px; height: 58px; }
+  .round svg { width: 26px; height: 26px; }
+  .round.big { width: 72px; height: 72px; }
+  .round.big svg { width: 32px; height: 32px; }
   .entry { padding: 10px 12px; gap: 10px; }
   .entry + .entry::before { left: 62px; }
   .ico { width: 38px; height: 38px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status .dot, .fab.primary.on { animation: none; }
+  .status .dot, .toggle.mic.on { animation: none; }
 }
