@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Product requirements for GymBro, a voice-first lifting tracker built at a hackathon.">
+  <meta name="theme-color" content="#f5f5f7">
+  <title>GymBro: Product Requirements</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap">
+  <link rel="icon" href="brand-icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --ink: #1d1d1f;
+      --ink-2: #6e6e73;
+      --paper: #f5f5f7;
+      --card: #ffffff;
+      --line: rgba(0, 0, 0, 0.1);
+      --blue: #0071e3;
+      --brand: #d63a2a;
+      --peach: #f3b9a3;
+      --lavender: #cbbdf0;
+      --grey: #d9d9df;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+    body {
+      margin: 0; background: var(--paper); color: var(--ink);
+      font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font: 0.88em ui-monospace, "SF Mono", Menlo, monospace; background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 5px; }
+
+    /* nav, matching the landing page */
+    .nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(245, 245, 247, 0.72);
+      -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 0.5px solid rgba(0, 0, 0, 0.12);
+    }
+    .nav-inner { max-width: 1024px; margin: 0 auto; padding: 0 22px; height: 52px; display: flex; align-items: center; gap: 24px; }
+    .logo { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+    .logo:hover { text-decoration: none; }
+    .logo img { width: 28px; height: 28px; border-radius: 7px; }
+    .logo span { font: 22px/1 "Pacifico", cursive; color: var(--brand); }
+    .links { display: flex; gap: 22px; margin-left: auto; align-items: center; font-size: 13px; }
+    .links a { color: var(--ink); opacity: 0.85; }
+    .pill { padding: 5px 13px; border-radius: 99px; background: var(--blue); color: #fff !important; opacity: 1 !important; font-weight: 500; }
+    .pill:hover { text-decoration: none; background: #0077ed; }
+
+    /* title band on the brand gradient */
+    .masthead { background: linear-gradient(160deg, var(--peach), var(--lavender) 45%, var(--grey) 95%); padding: 72px 22px 56px; }
+    .masthead .inner { max-width: 820px; margin: 0 auto; }
+    .kicker { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--brand); letter-spacing: 0.02em; }
+    h1 { margin: 0; font-size: clamp(40px, 6vw, 64px); line-height: 1.05; letter-spacing: -0.02em; }
+    .byline { margin: 16px 0 0; color: #3a3a3c; font-size: 15px; }
+    .pitch { margin: 26px 0 0; font-size: clamp(21px, 2.6vw, 28px); line-height: 1.3; font-weight: 600; max-width: 700px; }
+
+    /* layout: table of contents beside the document on wide screens */
+    .page { max-width: 1024px; margin: 0 auto; padding: 48px 22px 80px; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+    .toc { position: sticky; top: 76px; align-self: start; font-size: 14px; }
+    .toc p { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+    .toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .toc a { color: var(--ink-2); }
+    .toc a:hover { color: var(--ink); text-decoration: none; }
+    article { min-width: 0; }
+
+    .status {
+      background: var(--card); border-radius: 18px; padding: 18px 22px; margin-bottom: 40px;
+      border-left: 4px solid var(--brand); font-size: 15px; color: #3a3a3c;
+    }
+    .status b { color: var(--ink); }
+    .status ul { margin: 8px 0 0; padding-left: 20px; }
+
+    section { margin-bottom: 56px; }
+    h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.15; letter-spacing: -0.015em; }
+    h3 { margin: 26px 0 8px; font-size: 19px; }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 14px; padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    li ul { margin-top: 6px; }
+    .lead { font-size: 20px; line-height: 1.45; color: #3a3a3c; }
+    .callout { background: var(--card); border-radius: 18px; padding: 20px 22px; margin: 18px 0; }
+    .callout p:last-child { margin-bottom: 0; }
+
+    .checks { list-style: none; padding: 0; }
+    .checks li { display: flex; gap: 10px; align-items: baseline; }
+    .checks li::before { content: ""; flex: none; width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid #8e8e93; transform: translateY(2px); }
+
+    .chat { list-style: none; padding: 0; display: grid; gap: 8px; }
+    .chat li { max-width: 80%; padding: 10px 16px; border-radius: 20px; margin: 0; }
+    .chat .you { justify-self: end; background: var(--blue); color: #fff; border-bottom-right-radius: 6px; }
+    .chat .bot { justify-self: start; background: var(--card); border-bottom-left-radius: 6px; }
+
+    /* tables */
+    .table { overflow-x: auto; margin: 16px 0; background: var(--card); border-radius: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { padding: 11px 16px; text-align: left; vertical-align: top; }
+    th { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1px solid var(--line); }
+    tr + tr td { border-top: 0.5px solid var(--line); }
+    td:first-child { white-space: nowrap; font-weight: 600; }
+    .p { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+    .p0 { background: #ffe1dc; color: #b3261e; }
+    .p1 { background: #fff0d1; color: #8a5300; }
+    .p2 { background: #e5e5ea; color: #48484a; }
+
+    /* flow diagram */
+    figure.flow { margin: 18px 0 8px; background: var(--card); border-radius: 18px; padding: 16px; }
+    figure.flow svg { width: 100%; height: auto; display: block; }
+    .flow text { font: 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; fill: var(--ink); }
+    .flow .small { font-size: 11.5px; fill: var(--ink-2); }
+    .flow .bold { font-weight: 600; }
+    .flow .box { fill: none; stroke: #8e8e93; stroke-width: 1.25; }
+    .flow .main { fill: rgba(0, 113, 227, 0.1); stroke: var(--blue); stroke-width: 2; }
+    .flow .line { fill: none; stroke: #8e8e93; stroke-width: 1.25; }
+    figure.flow figcaption { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+
+    footer { border-top: 0.5px solid var(--line); padding: 28px 22px 40px; font-size: 13px; color: var(--ink-2); text-align: center; }
+
+    @media (max-width: 860px) {
+      .page { grid-template-columns: 1fr; gap: 24px; padding-top: 32px; }
+      .toc { position: static; background: var(--card); border-radius: 18px; padding: 18px 20px; }
+      .toc ol { grid-template-columns: 1fr 1fr; }
+      .links a:not(.pill) { display: none; }
+      h2 { font-size: 28px; }
+    }
+    @media print {
+      .nav, .toc { display: none; }
+      .page { display: block; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="logo" href="about.html"><img src="brand-icon.svg" alt=""><span>GymBro</span></a>
+      <div class="links">
+        <a href="about.html">About</a>
+        <a class="pill" href="index.html">Open GymBro</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="masthead">
+    <div class="inner">
+      <p class="kicker">Product requirements</p>
+      <h1>GymBro</h1>
+      <p class="byline">28 Oct 2026 · John Saunders · Hackathon build</p>
+      <p class="pitch">"Tracking lifts is so fiddly most people never do it. GymBro makes it one sentence between sets."</p>
+    </div>
+  </header>
+
+  <div class="page">
+    <nav class="toc" aria-label="Contents">
+      <p>Contents</p>
+      <ol>
+        <li><a href="#summary">Summary</a></li>
+        <li><a href="#problem">Problem and user</a></li>
+        <li><a href="#goals">Goals</a></li>
+        <li><a href="#flow">Core user flow</a></li>
+        <li><a href="#requirements">Requirements</a></li>
+        <li><a href="#progression">Progression rules</a></li>
+        <li><a href="#screens">Screens</a></li>
+        <li><a href="#tech">Technical approach</a></li>
+        <li><a href="#plan">Build plan and risks</a></li>
+      </ol>
+    </nav>
+
+    <article>
+      <div class="status">
+        <b>Status:</b> this is the plan written at the start of the hackathon. The app that shipped differs in a few places:
+        <ul>
+          <li>Plain HTML and JavaScript instead of Vite + TypeScript.</li>
+          <li>Speech is understood by built-in rules (with fixes for common mishearings) rather than the Claude API, so no API key is needed.</li>
+          <li>A single diary grouped by day replaced the separate History and Settings screens. Sets can be edited or deleted from it.</li>
+          <li>Added along the way: a "What weight?" follow-up question, a Sound switch, and the Space bar shortcut.</li>
+        </ul>
+      </div>
+
+      <section id="summary">
+        <h2>Summary</h2>
+        <p class="lead">GymBro is a voice-first lifting tracker: say what you just lifted, hear a ping, keep training. It remembers every set, tells you what you did last time, and asks when you're ready to add weight.</p>
+        <p><b>Hackathon scope:</b> a mobile web app for Android Chrome, built solo, demo-ready by 15:00 on 28 Oct 2026.</p>
+      </section>
+
+      <section id="problem">
+        <h2>Problem and target user</h2>
+        <p>People who lift regularly know they should track their sets, but typing weights and reps into an app between sets is too fiddly, so they stop tracking. Without a log they can't remember last session's numbers and don't know when to add weight.</p>
+        <p><b>Target user:</b> a regular gym-goer doing a push / pull / legs style routine with an Android phone and headphones, music playing. Today they track nothing.</p>
+        <div class="callout">
+          <p><b>Job to be done:</b> "Between sets, with chalky hands and music on, let me record what I did in one sentence, and tell me when I've earned a heavier weight."</p>
+        </div>
+      </section>
+
+      <section id="goals">
+        <h2>Goals, non-goals and demo success</h2>
+        <h3>Goals</h3>
+        <ul>
+          <li>Log a set by voice in one sentence, with no typing or tapping.</li>
+          <li>Recall the last weight and best reps for any exercise, by voice.</li>
+          <li>Prompt a weight increase when the user has earned it.</li>
+          <li>Group sets into automatically named sessions (for example "Wed Push").</li>
+        </ul>
+        <h3>Non-goals for today</h3>
+        <ul>
+          <li>Native Android app, background listening with the screen locked, or lowering other apps' music volume.</li>
+          <li>Accounts, cloud sync, or multiple users.</li>
+          <li>Workout planning, programmes, nutrition, or social features.</li>
+        </ul>
+        <h3>Demo success criteria</h3>
+        <ul class="checks">
+          <li>Say a set with the wake word on a propped-up phone and hear the ping within about 2 seconds.</li>
+          <li>Leave out the equipment and get asked for it.</li>
+          <li>Ask "what did I do last time?" and hear a correct spoken answer.</li>
+          <li>Load demo data and see the progression prompt fire.</li>
+          <li>Show history grouped by session and by exercise.</li>
+        </ul>
+      </section>
+
+      <section id="flow">
+        <h2>Core user flow</h2>
+        <p>Every interaction starts with the wake word. A normal log ends in a ping. GymBro only talks when it needs an answer or you asked it something.</p>
+        <figure class="flow">
+          <svg viewBox="0 0 760 496" role="img" aria-label="One sentence between sets logs, recalls or levels up">
+            <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8e8e93"/></marker></defs>
+            <text x="24" y="30" class="bold" style="font-size:15px">One sentence between sets logs, recalls or levels up</text>
+            <g class="line">
+              <path d="M182 90H212" marker-end="url(#arrow)"/><path d="M370 90H412" marker-end="url(#arrow)"/><path d="M526 90H560" marker-end="url(#arrow)"/>
+              <path d="M470 124V172" marker-end="url(#arrow)"/><path d="M400 210H322" marker-end="url(#arrow)"/><path d="M470 246V294" marker-end="url(#arrow)"/>
+              <path d="M230 238V320H390" marker-end="url(#arrow)"/><path d="M548 320H574" marker-end="url(#arrow)"/><path d="M656 358V410" marker-end="url(#arrow)"/>
+            </g>
+            <rect class="box" x="26" y="66" width="156" height="48" rx="8"/><text x="104" y="94" text-anchor="middle">Hears "GymBro …"</text>
+            <rect class="box" x="214" y="66" width="156" height="48" rx="8"/><text x="292" y="94" text-anchor="middle">Understands the set</text>
+            <polygon class="box" points="414,90 470,56 526,90 470,124"/><text x="470" y="94" text-anchor="middle">Intent?</text>
+            <rect class="box" x="562" y="62" width="168" height="56" rx="8"/><text x="646" y="86" text-anchor="middle">Speak last weight</text><text x="646" y="104" text-anchor="middle">and best reps</text>
+            <polygon class="box" points="400,210 470,174 540,210 470,246"/><text x="470" y="214" text-anchor="middle">Equipment said?</text>
+            <rect class="box" x="140" y="182" width="180" height="56" rx="8"/><text x="230" y="206" text-anchor="middle">Ask: bar, dumbbell</text><text x="230" y="224" text-anchor="middle">or machine?</text>
+            <rect class="main" x="392" y="296" width="156" height="48" rx="8"/><text x="470" y="324" text-anchor="middle" class="bold">Save set + ping</text>
+            <polygon class="box" points="576,320 656,282 736,320 656,358"/><text x="656" y="324" text-anchor="middle">Earned more weight?</text>
+            <rect class="box" x="576" y="412" width="160" height="56" rx="8"/><text x="656" y="436" text-anchor="middle">Ask: go up to</text><text x="656" y="454" text-anchor="middle">22.5 kg? (yes / no)</text>
+            <text x="543" y="74" text-anchor="middle" class="small">recall</text><text x="480" y="152" class="small">log a set</text>
+            <text x="361" y="200" text-anchor="middle" class="small">no</text><text x="480" y="274" class="small">yes</text>
+            <text x="240" y="290" class="small">spoken answer</text><text x="656" y="272" text-anchor="middle" class="small">first set of a lift today</text>
+            <text x="646" y="390" text-anchor="end" class="small">yes: 2 weeks at target</text>
+          </svg>
+          <figcaption>Voice flow: log, recall, progression.</figcaption>
+        </figure>
+        <h3>Example exchange</h3>
+        <ul class="chat">
+          <li class="you">GymBro, bench press, 20 kg, going for 12, got 9.</li>
+          <li class="bot">Bar, dumbbells or machine?</li>
+          <li class="you">Bar. <i>(ping)</i></li>
+          <li class="you">GymBro, what did I do last time on bench?</li>
+          <li class="bot">You're on 25 kg, your best is 11 reps.</li>
+        </ul>
+      </section>
+
+      <section id="requirements">
+        <h2>Functional requirements</h2>
+        <p><span class="p p0">P0</span> must work in the demo, <span class="p p1">P1</span> should if time allows, <span class="p p2">P2</span> is a stretch.</p>
+        <div class="table">
+          <table>
+            <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th></tr></thead>
+            <tbody>
+              <tr><td>F1</td><td>Always-on listening while the app is open; act only on utterances starting with the wake word "GymBro" ("Hey GymBro" also accepted)</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F2</td><td>Big tap-to-talk button as a fallback to the wake word</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F3</td><td>Parse freeform speech with an AI model into exercise, equipment, weight, unit, target reps and actual reps ("bench press, 20 kg, going for 12, got 9")</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F4</td><td>If equipment (barbell, dumbbell, machine, cable) is missing and not inferable, ask by voice and listen for the answer without needing the wake word</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F5</td><td>Save the set and play a short confirmation ping; no speech on a normal log</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F6</td><td>Answer "what did I do last time?" by voice: current working weight and best reps, e.g. "You're on 25 kg, your best is 11 reps"</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F7</td><td>Speak the same last-time summary automatically when the user logs a new exercise for the first time in a session</td><td><span class="p p1">P1</span></td></tr>
+              <tr><td>F8</td><td>Progression prompt (see Progression rules), answered yes / no by voice</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F9</td><td>Group sets into sessions automatically; a new session starts after 3 hours without a set</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F10</td><td>Name each session from the weekday and its exercises: "Wed Push", "Thu Pull", "Fri Legs", else "Upper" or "Full Body"</td><td><span class="p p1">P1</span></td></tr>
+              <tr><td>F11</td><td>Understand "same again" and "same but 22.5" relative to the previous set</td><td><span class="p p1">P1</span></td></tr>
+              <tr><td>F12</td><td>"Undo" / "delete that" removes the last set</td><td><span class="p p1">P1</span></td></tr>
+              <tr><td>F13</td><td>Keep the screen awake while the app is open</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F14</td><td>"Load demo data" button that seeds 3 weeks of sessions so the progression prompt can fire live</td><td><span class="p p0">P0</span></td></tr>
+              <tr><td>F15</td><td>Edit or delete a set by tapping it in history</td><td><span class="p p2">P2</span></td></tr>
+              <tr><td>F16</td><td>Export history as CSV</td><td><span class="p p2">P2</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="progression">
+        <h2>Progression rules</h2>
+        <p class="lead">GymBro asks to add weight once the user hits the top of their rep range on every set, at the same weight, for 2 weeks in a row.</p>
+        <ul>
+          <li><b>Tracked per exercise and equipment.</b> Barbell bench and dumbbell bench are separate lifts.</li>
+          <li><b>Target reps</b> = the "going for" number the user says, e.g. 12. If it's left out, use the last target for that lift.</li>
+          <li><b>Qualifying week</b> = a session in which every set at the working weight reached the target.</li>
+          <li><b>Trigger:</b> 2 qualifying sessions in 2 consecutive calendar weeks.</li>
+          <li><b>When it asks:</b> on the first set of that lift in the next session. "You've hit 12 on bench two weeks running. Want to go up to 22.5 kg?"</li>
+          <li><b>Yes</b> sets the new working weight. <b>No</b> waits for another qualifying week before asking again.</li>
+        </ul>
+        <h3>Default increments</h3>
+        <p>Common strength-coaching rules of thumb, approximate; editable in code.</p>
+        <div class="table">
+          <table>
+            <thead><tr><th>Lift type</th><th>Equipment</th><th>Increment</th></tr></thead>
+            <tbody>
+              <tr><td>Lower-body compound (squat, deadlift, RDL, hip thrust)</td><td>Barbell</td><td>+5 kg</td></tr>
+              <tr><td>Upper-body compound (bench, overhead press, row)</td><td>Barbell</td><td>+2.5 kg</td></tr>
+              <tr><td>Any</td><td>Dumbbell</td><td>+2 kg per dumbbell (next pair up)</td></tr>
+              <tr><td>Lower-body (leg press, leg extension, leg curl)</td><td>Machine</td><td>+5 kg (one plate on the stack)</td></tr>
+              <tr><td>Upper-body</td><td>Machine</td><td>+2.5 kg, or one plate if the stack is coarser</td></tr>
+              <tr><td>Any</td><td>Cable</td><td>+2.5 kg</td></tr>
+              <tr><td>Isolation (curls, lateral raises, triceps)</td><td>Any</td><td>Smallest available step, typically +1 to +2 kg</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The parser tags each exercise with a lift type (lower compound, upper compound, isolation) and a push / pull / legs group. The increment comes from that tag plus the equipment.</p>
+      </section>
+
+      <section id="screens">
+        <h2>Screens</h2>
+        <p>There are three screens, all designed for one-handed, glance-from-a-bench use: large type, high contrast.</p>
+        <ol>
+          <li><b>Live (home)</b>
+            <ul>
+              <li>Listening indicator: idle, heard wake word, thinking, logged (with the ping).</li>
+              <li>Today's session title ("Wed Push") and its sets, newest on top.</li>
+              <li>Last transcript and how it was parsed, so mistakes are visible.</li>
+              <li>Big tap-to-talk button.</li>
+            </ul>
+          </li>
+          <li><b>History</b>
+            <ul>
+              <li>Toggle between <b>By session</b> and <b>By exercise</b>.</li>
+              <li>By session: list of sessions ("Wed Push · 28 Oct · 14 sets"), tap to see sets grouped by exercise.</li>
+              <li>By exercise: each lift with current working weight, best reps, and every session's sets in date order.</li>
+            </ul>
+          </li>
+          <li><b>Settings</b>
+            <ul>
+              <li>API key (stored only on the device).</li>
+              <li>Units (kg by default).</li>
+              <li>Load demo data, and clear all data.</li>
+            </ul>
+          </li>
+        </ol>
+      </section>
+
+      <section id="tech">
+        <h2>Technical approach</h2>
+        <p>GymBro is a static web app with no backend: everything runs in Android Chrome and the only planned network call is to the Claude API.</p>
+        <div class="table">
+          <table>
+            <thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>App</td><td>Vite + TypeScript, single page</td><td>Fast to scaffold, no framework overhead</td></tr>
+              <tr><td>Hosting</td><td>GitHub Pages</td><td>Free HTTPS, which the mic requires</td></tr>
+              <tr><td>Speech to text</td><td>Web Speech API (<code>webkitSpeechRecognition</code>), continuous, auto-restarted when it stops</td><td>Built into Chrome on Android, no key</td></tr>
+              <tr><td>Wake word</td><td>Match "GymBro" / "Hey GymBro" at the start of each transcript</td><td>No extra SDK; Picovoice Porcupine is the v2 upgrade</td></tr>
+              <tr><td>Understanding</td><td>Claude API from the browser, <code>claude-haiku-5-5</code>, tool use returning strict JSON</td><td>Handles freeform phrasing; Haiku keeps replies fast</td></tr>
+              <tr><td>Ping</td><td>Web Audio API, a short two-tone beep</td><td>No audio files</td></tr>
+              <tr><td>Spoken replies</td><td><code>speechSynthesis</code></td><td>Built in</td></tr>
+              <tr><td>Screen on</td><td>Screen Wake Lock API</td><td>Phone propped on the bench</td></tr>
+              <tr><td>Storage</td><td><code>localStorage</code> JSON</td><td>Single user, single device</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><b>API key:</b> entered in Settings and kept on the phone. Calling Claude from the browser exposes the key to anyone with the device, which is acceptable for a personal hackathon demo, not for launch.</p>
+        <h3>Parser contract</h3>
+        <p>Send the transcript plus context (last set, today's lifts, any pending question). The parser returns exactly one intent:</p>
+        <ul>
+          <li><code>log_set</code>: exercise (normalised name), equipment or null, weight, unit, target reps, actual reps, lift type, push / pull / legs group.</li>
+          <li><code>query_last</code>: exercise.</li>
+          <li><code>answer_equipment</code>, <code>answer_yes_no</code>: replies to a question GymBro asked.</li>
+          <li><code>undo</code>, <code>unknown</code>.</li>
+        </ul>
+        <h3>Data model</h3>
+        <ul>
+          <li><b>Set:</b> id, timestamp, sessionId, exercise, equipment, weightKg, targetReps, actualReps, liftType, group.</li>
+          <li><b>Session:</b> id, startedAt, title (derived from weekday + majority group).</li>
+          <li><b>Lift state</b> (key = exercise + equipment): workingWeightKg, bestReps, lastPromptWeek.</li>
+        </ul>
+      </section>
+
+      <section id="plan">
+        <h2>Build plan, risks and v2</h2>
+        <p>Build the riskiest part first: voice on a real phone. Freeze features about an hour before 15:00 and spend the rest testing and rehearsing.</p>
+        <ol>
+          <li><b>Voice spike (first ~30 min).</b> Deploy a bare page to GitHub Pages, open it on an Android phone with music playing, and confirm continuous listening, the wake word, and what happens to the music.</li>
+          <li><b>Parse and log.</b> Parser, save sets, ping, tap-to-talk fallback (F1–F5, F13).</li>
+          <li><b>Recall.</b> "What did I do last time?" and the equipment follow-up question (F4, F6).</li>
+          <li><b>Sessions and history.</b> Auto-grouping and the History screen (F9, F10).</li>
+          <li><b>Progression.</b> Rule, increments table, yes / no prompt, demo data seeding (F8, F14).</li>
+          <li><b>Feature freeze, then polish.</b> P1 items only if time allows, then test in a noisy room and rehearse a 2-minute demo script.</li>
+        </ol>
+        <h3>Risks and fallbacks</h3>
+        <div class="table">
+          <table>
+            <thead><tr><th>Risk</th><th>Fallback</th></tr></thead>
+            <tbody>
+              <tr><td>Chrome's speech recognition may pause or interrupt music rather than ducking it</td><td>Find out in step 1; if so, present ducking as v2 and demo with music at low volume</td></tr>
+              <tr><td>Recognition stops after silence and beeps on restart</td><td>Auto-restart when it ends; keep tap-to-talk visible</td></tr>
+              <tr><td>Gym noise causes misheard numbers</td><td>Show the transcript and parse on screen; "undo" command</td></tr>
+              <tr><td>Parsing adds noticeable delay</td><td>Fast model, short prompt, ping only after save</td></tr>
+              <tr><td>Venue Wi-Fi is unreliable</td><td>Use a phone hotspot; record a backup demo video</td></tr>
+              <tr><td>Running out of time</td><td>P0 list only; seeded demo data covers progression</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>v2 ideas</h3>
+        <ul>
+          <li>Native Android app for true pocket mode: background wake word, music ducking via audio focus, headphone-button trigger.</li>
+          <li>On-device wake word (Picovoice Porcupine) and offline parsing.</li>
+          <li>Rest timer started automatically after each logged set.</li>
+          <li>Accounts and sync, so history survives a new phone.</li>
+          <li>Charts of working weight per lift over time.</li>
+        </ul>
+      </section>
+    </article>
+  </div>
+
+  <footer>
+    © 2026 John Saunders · <a href="index.html">Open GymBro</a> · <a href="about.html">About GymBro</a>
+  </footer>
+</body>
+</html>
