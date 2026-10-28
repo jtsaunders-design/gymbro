@@ -157,14 +157,15 @@ function answerWeight(phrase, source) {
 function handlePhrase(phrase, source) {
   log(`heard (${source}): "${phrase}"`);
   if (answerWeight(phrase, source)) return;
-  const command = extractCommand(phrase);
-  if (!command) {
+  const heard = extractCommand(phrase);
+  if (!heard) {
     if (Date.now() >= awaitingCommandUntil && wantListening && !pendingWeight) setState("listening", "Listening", 'Say "GymBro, …"');
     return;
   }
   awaitingCommandUntil = 0;
   pendingWeight = null;
-  showCommand(command, source);
+  const command = correctMishearings(heard);
+  showCommand(command, command === heard ? source : `${source} · heard "${heard}"`);
 
   if (isAmendment(command)) {
     const entry = amendLast(command);
