@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6a4d"/>
+      <stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <clipPath id="round"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#tile)"/>
+  <g clip-path="url(#round)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- impact sparks -->
+    <path d="M32 2.5v5M20 5l3 4M44 5l-3 4" stroke="#fff" stroke-width="2.6" fill="none"/>
+
+    <!-- outlines first, so the shapes read on the tile -->
+    <g stroke="#4a2316" fill="#4a2316">
+      <ellipse cx="6" cy="47" rx="11" ry="9" stroke-width="3"/>
+      <ellipse cx="58" cy="47" rx="11" ry="9" stroke-width="3"/>
+    </g>
+    <g stroke="#4a2316" fill="none">
+      <path d="M-6 55H14L25 34" stroke-width="16"/>
+      <path d="M70 55H50L39 34" stroke-width="16"/>
+    </g>
+
+    <!-- left arm: light skin -->
+    <ellipse cx="6" cy="47" rx="11" ry="9" fill="#f4c9a4"/>
+    <path d="M-6 55H14L25 34" stroke="#f4c9a4" stroke-width="12" fill="none"/>
+    <path d="M12.5 46q3.5 2.5 2.5 6.5" stroke="#d29b74" stroke-width="1.6" fill="none"/>
+
+    <!-- right arm: dark skin -->
+    <ellipse cx="58" cy="47" rx="11" ry="9" fill="#8a5434"/>
+    <path d="M70 55H50L39 34" stroke="#8a5434" stroke-width="12" fill="none"/>
+    <path d="M51.5 46q-3.5 2.5-2.5 6.5" stroke="#6a3c22" stroke-width="1.6" fill="none"/>
+
+    <!-- sweatbands -->
+    <path d="M17.6 40.5l6.6 3.6M46.4 40.5l-6.6 3.6" stroke="#2b6cff" stroke-width="4" fill="none"/>
+
+    <!-- the grip: dark fist underneath -->
+    <rect x="29" y="12" width="21" height="24" rx="9" fill="#8a5434" stroke="#4a2316" stroke-width="2"/>
+    <!-- light hand wraps over it -->
+    <rect x="14" y="14" width="22" height="22" rx="9" fill="#f4c9a4" stroke="#4a2316" stroke-width="2"/>
+    <!-- light fingers wrapped across the dark hand -->
+    <g fill="#f4c9a4" stroke="#4a2316" stroke-width="1.6">
+      <rect x="27" y="17" width="16" height="5" rx="2.5"/>
+      <rect x="27" y="22.5" width="17" height="5" rx="2.5"/>
+      <rect x="27" y="28" width="15" height="5" rx="2.5"/>
+    </g>
+    <!-- dark thumb hooked over the top of the light hand -->
+    <path d="M37 14.5q-6-5-14-1.5" stroke="#4a2316" stroke-width="6.5" fill="none"/>
+    <path d="M37 14.5q-6-5-14-1.5" stroke="#8a5434" stroke-width="3.6" fill="none"/>
+  </g>
+</svg>
