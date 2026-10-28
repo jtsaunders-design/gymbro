@@ -1,0 +1,219 @@
+// GymBro diary: turns a spoken set into an entry, stores it, and renders it by day.
+// Rule-based parsing for now; Claude takes over in build step 2.
+
+const DIARY_KEY = "gymbro.diary.v1";
+
+// Simple line icons, 24x24, drawn with currentColor.
+const ICONS = {
+  bench: '<circle cx="5" cy="13" r="2"/><path d="M7 14h11M8 18h12M10 18v3M18 18v3M11 14l1-5M15 14l-1-5M7 9h10M7 7v4M17 7v4"/>',
+  overhead: '<circle cx="12" cy="8" r="2"/><path d="M12 10v6M12 16l-3 5M12 16l3 5M12 11l-4-6M12 11l4-6M4 5h16M5 3v4M19 3v4"/>',
+  squat: '<circle cx="12" cy="4" r="2"/><path d="M4 8h16M5 6v4M19 6v4M12 6v8M12 14l-4 2 2 5M12 14l4 2-2 5"/>',
+  deadlift: '<circle cx="12" cy="4" r="2"/><path d="M12 6v8M12 14l-2 7M12 14l2 7M12 8l-3 9M12 8l3 9M4 17h16M5 15v4M19 15v4"/>',
+  pull: '<path d="M3 3h18M8 3l2 7M16 3l-2 7"/><circle cx="12" cy="9" r="2"/><path d="M12 11v6M12 17l-2 4M12 17l2 4"/>',
+  row: '<circle cx="6" cy="6" r="2"/><path d="M6 8l1 7h9l3 3M6.5 10H12M12 10h9M19 8v4M4 20h16"/>',
+  leg: '<circle cx="7" cy="5" r="2"/><path d="M7 7v7h6l3 6M4 14h5M4 14v7M14 21h5"/>',
+  dumbbell: '<path d="M8 12h8"/><rect x="4" y="8" width="4" height="8" rx="1"/><rect x="16" y="8" width="4" height="8" rx="1"/><path d="M2 10v4M22 10v4"/>',
+};
+
+// Order matters: specific names before general ones (leg curl before curl, RDL before deadlift).
+const EXERCISES = [
+  { name: "Incline bench press", re: /incline (bench|press)/, group: "push", icon: "bench" },
+  { name: "Leg press", re: /leg press/, group: "legs", icon: "leg" },
+  { name: "Overhead press", re: /overhead press|shoulder press|military press|\bohp\b/, group: "push", icon: "overhead" },
+  { name: "Chest press", re: /chest press/, group: "push", icon: "bench" },
+  { name: "Bench press", re: /bench/, group: "push", icon: "bench" },
+  { name: "Push-ups", re: /push ?-?ups?/, group: "push", icon: "bench" },
+  { name: "Dips", re: /\bdips?\b/, group: "push", icon: "overhead" },
+  { name: "Chest fly", re: /\bfl(y|ies)\b|pec deck/, group: "push", icon: "dumbbell" },
+  { name: "Lateral raise", re: /lateral|side raise/, group: "push", icon: "dumbbell" },
+  { name: "Triceps", re: /tricep|skull ?crusher|push ?down/, group: "push", icon: "dumbbell" },
+  { name: "Face pull", re: /face ?pull/, group: "pull", icon: "row" },
+  { name: "Pull-ups", re: /pull ?-?ups?|chin ?-?ups?/, group: "pull", icon: "pull" },
+  { name: "Lat pulldown", re: /pull ?down|lat pull/, group: "pull", icon: "pull" },
+  { name: "Row", re: /\brow(s|ing)?\b/, group: "pull", icon: "row" },
+  { name: "Leg curl", re: /leg curl|hamstring curl/, group: "legs", icon: "leg" },
+  { name: "Hammer curl", re: /hammer curl/, group: "pull", icon: "dumbbell" },
+  { name: "Bicep curl", re: /\bcurls?\b|bicep/, group: "pull", icon: "dumbbell" },
+  { name: "Shrugs", re: /shrug/, group: "pull", icon: "deadlift" },
+  { name: "Romanian deadlift", re: /romanian|\brdl\b|stiff ?-?leg/, group: "legs", icon: "deadlift" },
+  { name: "Deadlift", re: /dead ?lift/, group: "pull", icon: "deadlift" },
+  { name: "Front squat", re: /front squat/, group: "legs", icon: "squat" },
+  { name: "Squat", re: /squat/, group: "legs", icon: "squat" },
+  { name: "Lunges", re: /lunge/, group: "legs", icon: "leg" },
+  { name: "Leg extension", re: /leg extension/, group: "legs", icon: "leg" },
+  { name: "Calf raise", re: /calf|calves/, group: "legs", icon: "leg" },
+  { name: "Hip thrust", re: /hip thrust|glute bridge/, group: "legs", icon: "deadlift" },
+];
+
+const GROUP_LABEL = { push: "Push", pull: "Pull", legs: "Legs", other: "Other" };
+
+const UNITS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine" };
+const NUMBER_WORDS = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60,
+  seventy: 70, eighty: 80, ninety: 90, hundred: 100,
+};
+
+function wordsToDigits(text) {
+  const units = Object.values(UNITS).join("|");
+  return text
+    .replace(new RegExp(`\\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[ -](${units})\\b`, "g"),
+      (_, tens, unit) => String(NUMBER_WORDS[tens] + NUMBER_WORDS[unit]))
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/g,
+      (w) => String(NUMBER_WORDS[w]))
+    .replace(/\b(\d) 100(?: and)? (\d{1,2})\b/g, (_, h, rest) => String(h * 100 + Number(rest)))
+    .replace(/\b(\d) 100\b/g, (_, h) => String(h * 100));
+}
+
+function titleCase(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function parseSet(raw, last) {
+  const text = wordsToDigits(raw.toLowerCase().replace(/[,!?]/g, " ").replace(/\s+/g, " ").trim());
+
+  if (/^(same|again|same again|repeat)\b/.test(text) && last) {
+    const override = text.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilos?|kilograms?|lbs?|pounds?)/);
+    return { ...last, weight: override ? Number(override[1]) : last.weight, raw };
+  }
+
+  const ex = EXERCISES.find((e) => e.re.test(text));
+  const unitMatch = text.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilos?|kilograms?|lbs?|pounds?)\b/);
+  const target = text.match(/(?:going for|aiming for|target(?: of)?|trying for)\s*(\d+)/);
+  const got = text.match(/(?:got|did|managed|hit)\s*(\d+)|(\d+)\s*reps?\b/);
+  const forReps = text.match(/(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilos?|lbs?|pounds?)?\s*(?:for|x|times)\s*(\d+)/);
+  const equipment = text.match(/\b(barbell|bar|dumbbells?|machine|cable|smith)\b/);
+
+  let weight = unitMatch ? Number(unitMatch[1]) : null;
+  let reps = got ? Number(got[1] ?? got[2]) : null;
+  if (forReps && !/going for|aiming for|trying for/.test(text.slice(Math.max(0, forReps.index - 8), forReps.index + forReps[0].length))) {
+    weight ??= Number(forReps[1]);
+    reps ??= Number(forReps[2]);
+  }
+  // bodyweight moves: "pull ups for 8"
+  const bodyweight = text.match(/(?<!going |aiming |trying )\bfor (\d+)\b/);
+  if (reps == null && bodyweight) reps = Number(bodyweight[1]);
+
+  let name = ex?.name;
+  if (!name) {
+    const before = text.split(/\d/)[0].replace(/\b(the|a|on|at|with|i|did)\b/g, " ").trim();
+    name = before ? titleCase(before) : "Exercise";
+  }
+
+  const unit = unitMatch && /lb|pound/.test(unitMatch[2]) ? "lb" : "kg";
+  const eq = equipment ? equipment[1].replace(/s$/, "").replace(/^bar$/, "barbell") : null;
+
+  return {
+    exercise: name,
+    group: ex?.group ?? "other",
+    icon: ex?.icon ?? "dumbbell",
+    equipment: eq,
+    weight,
+    unit,
+    target: target ? Number(target[1]) : null,
+    reps,
+    raw,
+  };
+}
+
+// ---------- storage ----------
+
+function loadDiary() {
+  try {
+    return JSON.parse(localStorage.getItem(DIARY_KEY)) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDiary(entries) {
+  try {
+    localStorage.setItem(DIARY_KEY, JSON.stringify(entries));
+  } catch {
+    // private mode or storage full: keep the in-memory diary for this visit
+  }
+}
+
+let diary = loadDiary();
+
+function addToDiary(text) {
+  const entry = { ...parseSet(text, diary.at(-1)), id: crypto.randomUUID?.() ?? String(Date.now()), ts: Date.now() };
+  diary.push(entry);
+  saveDiary(diary);
+  renderDiary();
+  return entry;
+}
+
+function describe(e) {
+  const parts = [];
+  if (e.weight != null) parts.push(`${e.weight} ${e.unit}`);
+  if (e.reps != null && e.target != null) parts.push(`${e.reps} / ${e.target} reps`);
+  else if (e.reps != null) parts.push(`${e.reps} reps`);
+  else if (e.target != null) parts.push(`going for ${e.target}`);
+  if (e.equipment) parts.push(e.equipment);
+  return parts.join(" · ") || e.raw;
+}
+
+// ---------- rendering ----------
+
+function dayKey(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function icon(name, group) {
+  const span = el("span", `ico ${group}`);
+  span.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] ?? ICONS.dumbbell}</svg>`;
+  return span;
+}
+
+function renderDiary() {
+  const root = document.getElementById("diary");
+  root.replaceChildren();
+  if (!diary.length) {
+    root.append(el("p", "empty", "Your logged sets will appear here."));
+    return;
+  }
+
+  const days = new Map();
+  for (const e of [...diary].reverse()) {
+    const k = dayKey(e.ts);
+    if (!days.has(k)) days.set(k, []);
+    days.get(k).push(e);
+  }
+
+  for (const entries of days.values()) {
+    const day = el("div", "day");
+    const head = el("div", "day-head");
+    const date = new Date(entries[0].ts);
+    head.append(el("span", "day-name", date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })));
+
+    const badges = el("span", "badges");
+    const groups = [...new Set(entries.map((e) => e.group))].filter((g) => g !== "other");
+    for (const g of (groups.length ? groups : ["other"])) badges.append(el("span", `badge ${g}`, GROUP_LABEL[g]));
+    head.append(badges);
+
+    const list = el("ul", "entries");
+    for (const e of entries) {
+      const li = el("li", "entry");
+      const body = el("div", "entry-body");
+      body.append(el("div", "ex", e.exercise), el("div", "meta", describe(e)));
+      const time = el("time", null, new Date(e.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      li.append(icon(e.icon, e.group), body, time);
+      list.append(li);
+    }
+
+    day.append(head, list);
+    root.append(day);
+  }
+}
+
+renderDiary();
