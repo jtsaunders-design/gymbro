@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0f12">
+  <title>GymBro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>GymBro</h1>
+    <span class="tag">voice spike</span>
+  </header>
+
+  <main>
+    <section id="status" class="status idle">
+      <div class="dot"></div>
+      <div>
+        <div id="state" class="state">Tap Start</div>
+        <div id="hint" class="hint">Say "GymBro, bench press, 20 kg, going for 12, got 9"</div>
+      </div>
+    </section>
+
+    <div class="controls">
+      <button id="start" class="primary">Start listening</button>
+      <button id="talk" class="talk" disabled>Hold to talk</button>
+    </div>
+
+    <section class="card">
+      <h2>Commands heard</h2>
+      <ol id="commands" class="commands"><li class="empty">Nothing yet</li></ol>
+    </section>
+
+    <section class="card">
+      <h2>Type instead <small>(testing without a mic)</small></h2>
+      <form id="typed">
+        <input id="typedText" autocomplete="off" placeholder="gymbro squat 100 kg going for 5 got 5">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Spike checks</h2>
+      <div class="checks">
+        <button id="testPing">Test ping</button>
+        <button id="testSpeak">Test voice reply</button>
+      </div>
+      <ul class="facts">
+        <li>Speech API: <b id="fSpeech">?</b></li>
+        <li>Wake lock: <b id="fWake">?</b></li>
+        <li>Recognizer restarts: <b id="fRestarts">0</b></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Event log</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script src="voice.js"></script>
+</body>
+</html>
