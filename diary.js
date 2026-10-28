@@ -217,7 +217,21 @@ function parseFields(text, raw) {
 
 // ---------- storage ----------
 
+// ?demo shows sample sets in memory and never touches the real diary (used by the landing page).
+const DEMO = new URLSearchParams(location.search).get("demo");
+
+function demoDiary() {
+  const now = Date.now(), y = now - 86400000;
+  const sets = [
+    ["squat 100 kg going for 5 got 5 barbell", y], ["leg press 200 kg for 12", y + 6e5], ["calf raises 60 kg for 15", y + 12e5],
+    ["bench press 60 kg going for 8 got 8 barbell", now - 18e5], ["shoulder raises 8 kg for 12", now - 12e5],
+    ["pull ups for 10", now - 6e5], ["barbell rows 60 kg going for 10 got 8", now - 6e4],
+  ];
+  return sets.map(([text, ts], i) => ({ ...parseSet(text, null), id: `demo${i}`, ts }));
+}
+
 function loadDiary() {
+  if (DEMO !== null) return demoDiary();
   try {
     return JSON.parse(localStorage.getItem(DIARY_KEY)) ?? [];
   } catch {
@@ -226,6 +240,7 @@ function loadDiary() {
 }
 
 function saveDiary(entries) {
+  if (DEMO !== null) return;
   try {
     localStorage.setItem(DIARY_KEY, JSON.stringify(entries));
   } catch {
