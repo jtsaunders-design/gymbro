@@ -26,6 +26,8 @@ const EXERCISES = [
   { name: "Dips", re: /\bdips?\b/, group: "push", icon: "overhead", bodyweight: true },
   { name: "Chest fly", re: /\bfl(y|ies)\b|pec deck/, group: "push", icon: "dumbbell" },
   { name: "Lateral raise", re: /lateral|side raise/, group: "push", icon: "dumbbell" },
+  { name: "Shoulder raise", re: /shoulder raise/, group: "push", icon: "dumbbell" },
+  { name: "Front raise", re: /front raise/, group: "push", icon: "dumbbell" },
   { name: "Triceps", re: /tricep|skull ?crusher|push ?down/, group: "push", icon: "dumbbell" },
   { name: "Face pull", re: /face ?pull/, group: "pull", icon: "row" },
   { name: "Pull-ups", re: /pull ?-?ups?|chin ?-?ups?/, group: "pull", icon: "pull", bodyweight: true },
@@ -70,8 +72,92 @@ function titleCase(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// ---------- fixing misheard gym words ----------
+
+// Speech recognisers hear gym words as everyday ones. These are the common swaps.
+const MISHEARD = [
+  [/\b(razors?|raisers?|rayses|race is)\b/g, "raises"],
+  [/\b(lateral|front|side|shoulder|calf) (rays|raids|rays is)\b/g, "$1 raises"],
+  [/\b(car|calves|cough|cuff) raises\b/g, "calf raises"],
+  [/\bbench (rest|breast|dress|pressed|presses)\b/g, "bench press"],
+  [/\b(leg|chest|shoulder|military|overhead) (breast|rest|dress|pressed)\b/g, "$1 press"],
+  [/\bchess (press|fly|flies)\b/g, "chest $1"],
+  [/\b(squad|squads|squatch)\b/g, "squat"],
+  [/\bdead (left|lifts?|list|lifted)\b|\bdeadleft\b/g, "deadlift"],
+  [/\b(lap|lad|lot|flat) (pull ?downs?)\b/g, "lat pulldown"],
+  [/\b(bicep|biceps|hammer|leg|hamstring) (girls?|curly|curb|curve|carl|curd)\b/g, "$1 curl"],
+  [/\b(barbell|dumbbell|cable|seated|bent over|upright) (rose|roads|roes|rolls)\b/g, "$1 rows"],
+  [/^(rose|roes)\b/g, "rows"],
+  [/\b(lunches|lunge is)\b/g, "lunges"],
+  [/\bhip (trust|crust|thrusts)\b/g, "hip thrust"],
+  [/\bface (pool|pole|pulls)\b/g, "face pull"],
+  [/\b(dibs|dipps)\b/g, "dips"],
+  [/\bpull (ops|cups|apps)\b/g, "pull ups"],
+  [/\bpush (ops|cups|apps)\b/g, "push ups"],
+  [/\bskull (crushes|crashers|crasher)\b/g, "skull crushers"],
+  [/\btri ?(step|sep|seps)\b/g, "tricep"],
+  [/\b(shrubs|shrug's)\b/g, "shrugs"],
+  [/\br d l\b/g, "rdl"],
+  [/\bo h p\b/g, "ohp"],
+];
+
+// Close-match fallback for anything not in the list ("leg extention", "hamer curl").
+const VOCAB = [
+  "bench press", "incline bench", "chest press", "overhead press", "shoulder press", "military press",
+  "push ups", "dips", "chest fly", "pec deck", "lateral raise", "shoulder raise", "front raise",
+  "triceps", "skull crusher", "face pull", "pull ups", "chin ups", "lat pulldown", "rows", "leg curl",
+  "hammer curl", "bicep curl", "shrugs", "romanian deadlift", "deadlift", "front squat", "squat",
+  "lunges", "leg extension", "leg press", "calf raise", "hip thrust", "glute bridge",
+];
+const PROTECTED = /^(\d.*|for|got|going|aiming|trying|did|hit|managed|reps?|kg|kgs|kilos?|kilograms?|lbs?|pounds?|x|times|and|but|the|a|on|with|same|again|add|also|actually|that|was|it|barbell|bar|dumbbells?|machine|cable|smith)$/;
+
+function editDistance(a, b) {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return row[b.length];
+}
+
+const singular = (s) => s.replace(/s\b/g, "");
+
+function fuzzyFix(text) {
+  const words = text.split(" ");
+  for (let size = 3; size >= 1; size--) {
+    for (let i = 0; i + size <= words.length; i++) {
+      const slice = words.slice(i, i + size);
+      if (slice.some((w) => !w || PROTECTED.test(w))) continue;
+      const phrase = slice.join(" ");
+      if (phrase.length < 4) continue;
+      let best = null;
+      for (const v of VOCAB) {
+        if (v.split(" ").length !== size) continue;
+        const d = singular(phrase) === singular(v) ? 0 : editDistance(phrase, v);
+        if (d / v.length <= 0.2 && (!best || d < best.d)) best = { v, d };
+      }
+      if (best && best.d > 0) words.splice(i, size, ...best.v.split(" "));
+    }
+  }
+  return words.join(" ");
+}
+
+// Returns the text with misheard gym words corrected (lowercased), or the original if nothing changed.
+function correctMishearings(raw) {
+  const before = raw.toLowerCase().replace(/[,!?]|\.(?!\d)/g, " ").replace(/\s+/g, " ").trim();
+  let text = before;
+  for (const [wrong, right] of MISHEARD) text = text.replace(wrong, right);
+  text = fuzzyFix(text);
+  return text === before ? raw : text;
+}
+
 function normalise(raw) {
-  return wordsToDigits(raw.toLowerCase().replace(/[,!?]|\.(?!\d)/g, " ").replace(/\s+/g, " ").trim())
+  return wordsToDigits(correctMishearings(raw).toLowerCase().replace(/[,!?]|\.(?!\d)/g, " ").replace(/\s+/g, " ").trim())
     .replace(/(\d+) point (\d+)/g, "$1.$2");
 }
 
