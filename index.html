@@ -39,6 +39,8 @@
           <li><span class="num">3</span><span>Hear the ping: it's in your diary.</span></li>
         </ol>
         <p class="tip">Forgot something? Say "GymBro, add 20 kg" or "GymBro, actually got 10".</p>
+        <p class="tip">Tap a set in the diary to edit or delete it.</p>
+        <p class="tip keys">On a keyboard, press <kbd>Space</kbd> to turn the mic on or off.</p>
       </section>
 
       <section class="group">
@@ -79,6 +81,30 @@
       </button>
       <span class="ctl-label">Hold to talk</span>
     </div>
+  </div>
+
+  <dialog id="editor" class="sheet" aria-labelledby="editTitle">
+    <form id="editForm" method="dialog">
+      <header class="sheet-head">
+        <button type="button" id="editCancel" class="link">Cancel</button>
+        <h2 id="editTitle">Edit set</h2>
+        <button type="submit" class="link strong">Save</button>
+      </header>
+      <div class="fields">
+        <label class="field">Exercise<input id="fExercise" list="exerciseNames" autocomplete="off" required></label>
+        <label class="field">Weight<span class="pair"><input id="fWeight" type="number" inputmode="decimal" step="any" min="0" placeholder="None"><select id="fUnit" aria-label="Unit"><option>kg</option><option>lb</option></select></span></label>
+        <label class="field">Reps done<input id="fReps" type="number" inputmode="numeric" min="0" placeholder="None"></label>
+        <label class="field">Going for<input id="fTarget" type="number" inputmode="numeric" min="0" placeholder="None"></label>
+        <label class="field">Equipment<select id="fEquipment"><option value="">None</option><option>barbell</option><option>dumbbell</option><option>machine</option><option>cable</option><option>smith</option></select></label>
+      </div>
+      <button type="button" id="editDelete" class="danger">Delete set</button>
+    </form>
+  </dialog>
+  <datalist id="exerciseNames"></datalist>
+
+  <div id="toast" class="toast" role="status" hidden>
+    <span id="toastText"></span>
+    <button type="button" id="toastUndo">Undo</button>
   </div>
 
   <script src="diary.js"></script>
