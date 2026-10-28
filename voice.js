@@ -354,4 +354,19 @@ $("typed").addEventListener("submit", (e) => {
   $("typedText").value = "";
 });
 
+// Landing-page screenshots: ?demo=listening | logged | weight | edit
+if (DEMO === "listening") {
+  setStartButton(true);
+  setState("listening", "Listening", 'Say "GymBro, …"');
+} else if (DEMO === "logged") {
+  setStartButton(true);
+  showCommand("bench press 60 kg going for 8 got 8 barbell", "voice");
+  setState("logged", "Logged Bench press", "60 kg · 8 / 8 reps · barbell");
+} else if (DEMO === "weight") {
+  setStartButton(true);
+  setState("awake", "What weight?", 'Row: say the weight, or "skip"');
+} else if (DEMO === "edit") {
+  openEditor(diary.at(-1).id);
+}
+
 log("page loaded");
