@@ -21,9 +21,7 @@ let audioCtx = null;
 // ---------- logging + UI ----------
 
 function log(msg) {
-  const t = new Date().toLocaleTimeString([], { hour12: false });
-  const el = $("log");
-  el.textContent = `${t}  ${msg}\n` + el.textContent;
+  console.log(`[gymbro] ${msg}`);
 }
 
 function setState(kind, text, hint) {
@@ -114,8 +112,9 @@ function handlePhrase(phrase, source) {
   }
   awaitingCommandUntil = 0;
   showCommand(command, source);
+  const entry = addToDiary(command);
   ping();
-  setState("logged", "Got it", command);
+  setState("logged", `Logged ${entry.exercise}`, describe(entry));
   setTimeout(() => wantListening && setState("listening", "Listening", 'Say "GymBro, …"'), 1800);
 }
 
