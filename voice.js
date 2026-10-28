@@ -21,6 +21,15 @@ let lastStart = 0;
 let wakeLock = null;
 let audioCtx = null;
 
+// Sound switch: the ping and spoken replies. Remembered on this device.
+const SOUND_KEY = "gymbro.sound";
+let soundOn = true;
+try {
+  soundOn = localStorage.getItem(SOUND_KEY) !== "off";
+} catch {
+  // storage blocked: default to sound on
+}
+
 // ---------- logging + UI ----------
 
 function log(msg) {
@@ -29,8 +38,14 @@ function log(msg) {
 
 function setStartButton(on) {
   $("start").classList.toggle("on", on);
-  $("start").setAttribute("aria-pressed", String(on));
-  $("startLabel").textContent = on ? "Stop" : "Start listening";
+  $("start").setAttribute("aria-checked", String(on));
+  $("startLabel").textContent = on ? "Mic on" : "Mic off";
+}
+
+function setSoundButton(on) {
+  $("speaker").classList.toggle("on", on);
+  $("speaker").setAttribute("aria-checked", String(on));
+  $("speakerLabel").textContent = on ? "Sound on" : "Sound off";
 }
 
 function setState(kind, text, hint) {
@@ -53,6 +68,7 @@ function showCommand(text, source) {
 // ---------- feedback ----------
 
 function ping() {
+  if (!soundOn) return;
   audioCtx ??= new AudioContext();
   const now = audioCtx.currentTime;
   [880, 1320].forEach((freq, i) => {
@@ -69,6 +85,7 @@ function ping() {
 }
 
 function speak(text) {
+  if (!soundOn) return;
   if (!("speechSynthesis" in window)) return log("speechSynthesis not supported");
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -221,7 +238,7 @@ function buildRecognizer() {
     log(`error: ${e.error}`);
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
       wantListening = false;
-      setState("error", "Mic blocked", "Allow microphone access for this site, then tap Start");
+      setState("error", "Mic blocked", "Allow microphone access for this site, then turn the mic on");
       setStartButton(false);
     }
   };
@@ -250,6 +267,18 @@ function startRecognizer() {
 
 // ---------- controls ----------
 
+setSoundButton(soundOn);
+$("speaker").addEventListener("click", () => {
+  soundOn = !soundOn;
+  setSoundButton(soundOn);
+  try {
+    localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
+  } catch {
+    // storage blocked: the switch still works for this visit
+  }
+  ping(); // a quick confirmation when turning sound on
+});
+
 if (SpeechRecognition) {
   recognizer = buildRecognizer();
   $("talk").disabled = false;
@@ -265,7 +294,7 @@ $("start").addEventListener("click", () => {
     wantListening = false;
     recognizer.stop();
     setStartButton(false);
-    setState("idle", "Paused", "Tap Start to listen again");
+    setState("idle", "Paused", "Turn the mic on to listen again");
     return;
   }
   wantListening = true;
