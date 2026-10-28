@@ -287,8 +287,9 @@ if (SpeechRecognition) {
   setState("error", "No speech support", "Open this page in Chrome. You can still type a set.");
 }
 
-$("start").addEventListener("click", () => {
-  audioCtx ??= new AudioContext(); // must be created from a tap
+function toggleMic() {
+  if ($("start").disabled) return;
+  audioCtx ??= new AudioContext(); // must be created from a tap or key press
   audioCtx.resume();
   if (wantListening) {
     wantListening = false;
@@ -302,6 +303,21 @@ $("start").addEventListener("click", () => {
   setState("listening", "Listening", 'Say "GymBro, …"');
   keepAwake();
   startRecognizer();
+}
+
+$("start").addEventListener("click", toggleMic);
+
+// Keyboard: Space (or Cmd/Ctrl+Space where the OS allows it) turns the mic on or off.
+// Skipped while typing or editing a set, and handled on keyup too so a focused button doesn't also fire.
+const isTyping = (el) => el?.closest?.("input, textarea, select, [contenteditable], dialog");
+const isMicKey = (e) => e.code === "Space" && !e.altKey && !e.shiftKey;
+document.addEventListener("keydown", (e) => {
+  if (!isMicKey(e) || isTyping(e.target)) return;
+  e.preventDefault();
+  if (!e.repeat) toggleMic();
+});
+document.addEventListener("keyup", (e) => {
+  if (isMicKey(e) && !isTyping(e.target)) e.preventDefault();
 });
 
 // Fallback: hold the button and speak, no wake word needed.
