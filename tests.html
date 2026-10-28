@@ -13,7 +13,9 @@
     #results li { padding: 4px 0; border-bottom: 1px solid var(--line); }
     #results li.fail { color: var(--bad); }
     #results li small { display: block; color: var(--muted); }
+    body { padding: 16px; }
     #app { opacity: 0.5; }
+    #app .dock { position: static; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -350,6 +352,8 @@
       say("gym bro rows 50 kg for 8");
       const days = [...document.querySelectorAll("#diary .day")];
       eq(days.length, 2, "days");
+      ok(days[0].querySelector(".day-name").textContent.startsWith("Today"), "today heading");
+      ok(days[1].querySelector(".day-name").textContent.startsWith("Yesterday"), "yesterday heading");
       eq([...days[0].querySelectorAll(".badge")].map((b) => b.textContent), ["Pull", "Push"], "today's badges");
       eq([...days[1].querySelectorAll(".badge")].map((b) => b.textContent), ["Legs"], "yesterday's badges");
       eq([...days[0].querySelectorAll(".ex")].map((e) => e.textContent), ["Row", "Bench press"], "newest first");
@@ -375,6 +379,8 @@
       eq(recognizer.starts, 1);
       eq(wantListening, true);
       eq(document.getElementById("state").textContent, "Listening");
+      eq(document.getElementById("startLabel").textContent, "Stop", "button label");
+      ok(document.getElementById("start").classList.contains("on"), "button shows listening");
     });
     test("mic: a spoken set is logged with a ping", () => {
       reset();
@@ -401,13 +407,14 @@
       recognizer.end();
       await wait(1200);
       eq(recognizer.starts, before + 1);
-      ok(Number(document.getElementById("fRestarts").textContent) >= 1, "restart counter");
+      ok(restarts >= 1, "restart counter");
     });
     test("mic: Stop ends listening and does not restart", async () => {
       reset();
       document.getElementById("start").click();
       eq(wantListening, false);
       eq(document.getElementById("state").textContent, "Paused");
+      eq(document.getElementById("startLabel").textContent, "Start listening", "button label");
       const starts = recognizer.starts;
       await wait(1200);
       eq(recognizer.starts, starts);
@@ -436,14 +443,15 @@
       await wait(1200);
       eq(recognizer.starts, starts);
     });
-    test("typed: the Type instead box follows the same rules", () => {
+    test("typed: a typed set doesn't need the wake word", () => {
       reset();
       const input = document.getElementById("typedText"), form = document.getElementById("typed");
       input.value = "bench 20 kg for 8"; form.requestSubmit();
-      eq(diary.length, 0, "ignored without wake word");
-      input.value = "gymbro bench 20 kg for 8"; form.requestSubmit();
       eq(diary.length, 1);
       eq(input.value, "", "input cleared");
+      input.value = "gymbro squat 100 kg for 5"; form.requestSubmit();
+      eq(last().exercise, "Squat");
+      ok(!NO_WAKE.test(document.getElementById("commands").textContent), "wake word shown in commands list");
     });
 
     // ---------- runner ----------
@@ -467,7 +475,8 @@
     (async () => {
       const html = await (await fetch("index.html", { cache: "no-store" })).text();
       const doc = new DOMParser().parseFromString(html, "text/html");
-      document.getElementById("app").innerHTML = doc.querySelector("main").outerHTML;
+      doc.querySelectorAll("script").forEach((s) => s.remove());
+      document.getElementById("app").innerHTML = doc.body.innerHTML;
       try { localStorage.removeItem("gymbro.diary.v1"); } catch {}
       for (const src of ["diary.js", "voice.js"]) {
         await new Promise((resolve) => {
