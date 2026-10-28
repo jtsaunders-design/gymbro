@@ -290,6 +290,14 @@ function dayKey(ts) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+function dayLabel(ts) {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dayKey(ts) === dayKey(Date.now())) return "Today";
+  if (dayKey(ts) === dayKey(yesterday)) return "Yesterday";
+  return new Date(ts).toLocaleDateString(undefined, { weekday: "long" });
+}
+
 function el(tag, cls, text) {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
@@ -321,8 +329,9 @@ function renderDiary() {
   for (const entries of days.values()) {
     const day = el("div", "day");
     const head = el("div", "day-head");
-    const date = new Date(entries[0].ts);
-    head.append(el("span", "day-name", date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })));
+    const name = el("span", "day-name", dayLabel(entries[0].ts));
+    name.append(el("span", "day-date", new Date(entries[0].ts).toLocaleDateString(undefined, { day: "numeric", month: "short" })));
+    head.append(name);
 
     const badges = el("span", "badges");
     const groups = [...new Set(entries.map((e) => e.group))].filter((g) => g !== "other");
