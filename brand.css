@@ -1,0 +1,36 @@
+/* GymBro branding: script wordmark, handshake icon, two-pastel gradient into grey. */
+
+:root {
+  --bg: #d9d9df;        /* soft grey the gradient settles into */
+  --brand: #d63a2a;
+  --pastel-1: #f3b9a3;  /* peach */
+  --pastel-2: #cbbdf0;  /* lavender */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18181b;
+    --brand: #ff7a63;
+    --pastel-1: #3d241b;
+    --pastel-2: #2a2244;
+  }
+}
+
+body {
+  background: linear-gradient(160deg, var(--pastel-1) 0%, var(--pastel-2) 38%, var(--bg) 80%) fixed var(--bg);
+}
+
+/* fade behind the controls blends into the wash instead of a solid colour */
+body::after { background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 75%, transparent) 70%); }
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon {
+  width: 56px; height: 56px; flex: none; border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(214, 58, 42, 0.25), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.wordmark {
+  margin: 0; font-family: "Pacifico", "Snell Roundhand", cursive; font-weight: 400;
+  font-size: 42px; line-height: 1.4; letter-spacing: 0; color: var(--brand);
+}
+.brand .eyebrow { margin-top: 14px; } /* clears the script's descenders */
+@media (min-width: 760px) { .wordmark { font-size: 48px; } .brand-icon { width: 64px; height: 64px; } }
+@media (max-width: 400px) { .wordmark { font-size: 36px; } .brand-icon { width: 48px; height: 48px; border-radius: 12px; } }
