@@ -101,6 +101,61 @@
       has(parseSet("same again but 22.5 kg", prev), { exercise: "Bench press", weight: 22.5, reps: 9 });
     });
 
+    // ---------- misheard words ----------
+
+    const MISHEARD_CASES = [
+      ["shoulder razors 8 kg for 12", "Shoulder raise", "shoulder raises 8 kg for 12"],
+      ["lateral raisers 10 kg for 15", "Lateral raise", "lateral raises 10 kg for 15"],
+      ["front rays 8 kg for 10", "Front raise", "front raises 8 kg for 10"],
+      ["calf razors 60 kg for 15", "Calf raise", "calf raises 60 kg for 15"],
+      ["bench rest 60 kg for 5", "Bench press", "bench press 60 kg for 5"],
+      ["leg breast 200 kg for 12", "Leg press", "leg press 200 kg for 12"],
+      ["chess press 40 kg for 10", "Chest press", "chest press 40 kg for 10"],
+      ["squad 100 kg for 5", "Squat", "squat 100 kg for 5"],
+      ["dead left 140 kg for 3", "Deadlift", "deadlift 140 kg for 3"],
+      ["lap pulldown 50 kg for 10", "Lat pulldown", "lat pulldown 50 kg for 10"],
+      ["bicep girls 12 kg for 10", "Bicep curl", "bicep curl 12 kg for 10"],
+      ["barbell rose 60 kg for 8", "Row", "barbell rows 60 kg for 8"],
+      ["lunches 20 kg for 10", "Lunges", "lunges 20 kg for 10"],
+      ["hip trust 80 kg for 10", "Hip thrust", "hip thrust 80 kg for 10"],
+      ["face pool 20 kg for 15", "Face pull", "face pull 20 kg for 15"],
+      ["dibs for 10", "Dips", "dips for 10"],
+      ["pull ops for 8", "Pull-ups", "pull ups for 8"],
+      ["skull crashers 20 kg for 10", "Triceps", "skull crushers 20 kg for 10"],
+      ["leg extention 40 kg for 12", "Leg extension", "leg extension 40 kg for 12"],
+      ["hamer curl 14 kg for 10", "Hammer curl", "hammer curl 14 kg for 10"],
+      ["romainian deadlift 60 kg for 10", "Romanian deadlift", "romanian deadlift 60 kg for 10"],
+    ];
+    for (const [heard, exercise, fixed] of MISHEARD_CASES) {
+      test(`misheard: "${heard}" → ${exercise}`, () => {
+        eq(correctMishearings(heard), fixed, "corrected text");
+        eq(parseSet(heard, null).exercise, exercise, "exercise");
+      });
+    }
+
+    const LEAVE_ALONE = ["bench press 20 kg going for 12 got 9", "squat 100 kg for 5", "squats 100 kg for 5", "deadlifts 140 kg for 3",
+                         "seated cable row 50 kg for 10", "chin ups for 6", "zercher carry 40 kg", "same again", "skip", "add 20 kg",
+                         "pull ups for 8", "did you see the game last night"];
+    for (const phrase of LEAVE_ALONE) {
+      test(`misheard: leaves correct speech alone ("${phrase}")`, () => eq(correctMishearings(phrase), phrase));
+    }
+
+    test("misheard: the diary and commands list show the corrected words", () => {
+      reset();
+      say("gym bro shoulder razors 8 kg for 12");
+      has(last(), { exercise: "Shoulder raise", weight: 8, reps: 12 });
+      const cmd = document.querySelector("#commands li");
+      eq(cmd.firstChild.textContent, "shoulder raises 8 kg for 12");
+      ok(cmd.querySelector("small").textContent.includes('heard "shoulder razors 8 kg for 12"'), "shows what was heard");
+      eq(document.querySelector("#diary .ex").textContent, "Shoulder raise");
+    });
+    test("misheard: corrections work when adding to the last entry", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro actually it was chess press");
+      eq(last().exercise, "Chest press");
+    });
+
     // ---------- wake word ----------
 
     const WAKE_CASES = [
