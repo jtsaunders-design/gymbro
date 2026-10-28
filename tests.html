@@ -56,7 +56,7 @@
     function ok(cond, label) { if (!cond) throw new Error(label); }
     function has(obj, expected) { for (const [k, v] of Object.entries(expected)) eq(obj?.[k], v, k); }
 
-    let pings = 0, spoken = [];
+    let pings = 0, spoken = [], realSpeak = null;
 
     function reset() {
       diary = []; saveDiary(diary); renderDiary();
@@ -379,8 +379,9 @@
       eq(recognizer.starts, 1);
       eq(wantListening, true);
       eq(document.getElementById("state").textContent, "Listening");
-      eq(document.getElementById("startLabel").textContent, "Stop", "button label");
-      ok(document.getElementById("start").classList.contains("on"), "button shows listening");
+      eq(document.getElementById("startLabel").textContent, "Mic on", "switch label");
+      ok(document.getElementById("start").classList.contains("on"), "switch shows on");
+      eq(document.getElementById("start").getAttribute("aria-checked"), "true", "switch state for screen readers");
     });
     test("mic: a spoken set is logged with a ping", () => {
       reset();
@@ -414,7 +415,8 @@
       document.getElementById("start").click();
       eq(wantListening, false);
       eq(document.getElementById("state").textContent, "Paused");
-      eq(document.getElementById("startLabel").textContent, "Start listening", "button label");
+      eq(document.getElementById("startLabel").textContent, "Mic off", "switch label");
+      eq(document.getElementById("start").getAttribute("aria-checked"), "false", "switch state for screen readers");
       const starts = recognizer.starts;
       await wait(1200);
       eq(recognizer.starts, starts);
@@ -443,6 +445,35 @@
       await wait(1200);
       eq(recognizer.starts, starts);
     });
+    test("sound: the switch turns sound off and on, and is remembered", () => {
+      reset();
+      const btn = document.getElementById("speaker");
+      eq(soundOn, true, "starts on");
+      btn.click();
+      eq(soundOn, false);
+      eq(document.getElementById("speakerLabel").textContent, "Sound off");
+      eq(btn.getAttribute("aria-checked"), "false");
+      eq(localStorage.getItem("gymbro.sound"), "off", "remembered");
+      btn.click();
+      eq(soundOn, true);
+      eq(document.getElementById("speakerLabel").textContent, "Sound on");
+      eq(localStorage.getItem("gymbro.sound"), "on", "remembered");
+    });
+    test("sound: off means no spoken replies", () => {
+      const realSay = window.speechSynthesis.speak.bind(window.speechSynthesis);
+      let said = 0;
+      window.speechSynthesis.speak = () => { said++; };
+      try {
+        soundOn = false; realSpeak("What weight?");
+        eq(said, 0, "silent when off");
+        soundOn = true; realSpeak("What weight?");
+        eq(said, 1, "speaks when on");
+      } finally {
+        window.speechSynthesis.speak = realSay;
+        soundOn = true;
+      }
+    });
+
     test("typed: a typed set doesn't need the wake word", () => {
       reset();
       const input = document.getElementById("typedText"), form = document.getElementById("typed");
@@ -486,6 +517,7 @@
           document.body.append(s);
         });
       }
+      realSpeak = speak;
       ping = () => { pings++; };
       speak = (text) => { spoken.push(text); };
       await run();
