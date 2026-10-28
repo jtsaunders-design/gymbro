@@ -124,6 +124,69 @@ h1 { margin: 2px 0 0; font-size: 34px; font-weight: 700; letter-spacing: -0.02em
 .ex { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta { font-size: 15px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .entry time { font-size: 15px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.entry { cursor: pointer; outline: none; transition: background-color 0.15s ease; }
+.entry:hover, .entry:focus-visible { background: var(--fill); }
+.entry:active { background: color-mix(in srgb, var(--fill) 180%, transparent); }
+.chev { display: grid; color: var(--text-2); opacity: 0.6; margin-right: -6px; }
+.chev svg { width: 16px; height: 16px; stroke-width: 2.5; }
+
+/* ---------- edit sheet: slides up from the bottom on phones, centred on bigger screens ---------- */
+
+.sheet {
+  width: min(480px, 100%); max-width: 100%; margin: auto auto 0; padding: 0;
+  border: 0; border-radius: 14px 14px 0 0; background: var(--card); color: var(--text);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+}
+.sheet[open] { animation: sheet-up 0.25s ease-out; }
+.sheet::backdrop { background: rgba(0, 0, 0, 0.35); }
+@keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
+@media (min-width: 760px) { .sheet { margin: auto; border-radius: 14px; } }
+
+.sheet form { padding: 0 16px calc(16px + env(safe-area-inset-bottom)); }
+.sheet-head {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: 14px 0; border-bottom: 0.5px solid var(--sep); margin: 0 -16px 8px; padding-left: 16px; padding-right: 16px;
+}
+.sheet-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.link { border: 0; background: none; color: var(--blue); font-size: 17px; padding: 6px 0; cursor: pointer; justify-self: start; }
+.link.strong { font-weight: 600; justify-self: end; }
+
+.fields { display: grid; }
+.field {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; font-size: 17px; border-bottom: 0.5px solid var(--sep);
+}
+.field input, .field select {
+  min-width: 0; width: 55%; border: 0; background: none; text-align: right;
+  font-size: 17px; color: var(--text-2); outline: none; padding: 10px 0;
+}
+.field input:focus { color: var(--text); }
+.pair { display: flex; justify-content: flex-end; align-items: center; gap: 6px; width: 55%; }
+.pair input { flex: 1; width: auto; }
+.pair select { flex: none; width: auto; min-width: 3.4em; }
+
+.danger {
+  width: 100%; margin-top: 20px; padding: 14px; border: 0; border-radius: 12px;
+  background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red);
+  font-size: 17px; font-weight: 600; cursor: pointer;
+}
+
+/* ---------- undo toast ---------- */
+
+.toast {
+  position: fixed; z-index: 20; left: 50%; transform: translateX(-50%);
+  top: calc(16px + env(safe-area-inset-top));
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 10px 10px 18px; border-radius: 99px;
+  background: var(--glass); color: var(--text); box-shadow: var(--shadow), inset 0 0 0 0.5px var(--sep);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  font-size: 15px; white-space: nowrap;
+}
+.toast[hidden] { display: none; }
+.toast button {
+  border: 0; border-radius: 99px; padding: 6px 14px; cursor: pointer;
+  background: var(--blue); color: #fff; font-size: 15px; font-weight: 600;
+}
 
 /* ---------- sidebar groups ---------- */
 
@@ -137,6 +200,13 @@ h1 { margin: 2px 0 0; font-size: 34px; font-weight: 700; letter-spacing: -0.02em
   background: var(--blue); color: #fff; font-size: 13px; font-weight: 700;
 }
 .tip { margin: 14px 0 0; padding-top: 12px; border-top: 0.5px solid var(--sep); font-size: 13px; color: var(--text-2); }
+.tip.keys { margin-top: 10px; padding-top: 10px; }
+kbd {
+  font: 600 12px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--text);
+  padding: 1px 6px; border-radius: 5px; background: var(--fill); box-shadow: inset 0 -1px 0 var(--sep);
+}
+/* touch-only devices have no keyboard, so hide the hint */
+@media (hover: none) and (pointer: coarse) { .tip.keys { display: none; } }
 
 .typed { display: flex; gap: 8px; }
 .typed input {
