@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GymBro tests</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #summary { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+    #summary.pass { color: var(--accent); }
+    #summary.fail { color: var(--bad); }
+    #results { list-style: none; padding: 0; margin: 0 0 24px; font-size: 14px; }
+    #results li { padding: 4px 0; border-bottom: 1px solid var(--line); }
+    #results li.fail { color: var(--bad); }
+    #results li small { display: block; color: var(--muted); }
+    #app { opacity: 0.5; }
+  </style>
+</head>
+<body>
+  <p id="summary">Running…</p>
+  <ul id="results"></ul>
+  <div id="app"></div>
+
+  <script>
+    // Stand-in for Chrome's speech recogniser so the real voice pipeline can be driven from tests.
+    class MockRecognition {
+      constructor() { MockRecognition.instances.push(this); this.starts = 0; this.stops = 0; this.running = false; }
+      start() {
+        if (this.running) throw new DOMException("already started", "InvalidStateError");
+        this.running = true; this.starts++; this.onstart?.();
+      }
+      stop() { this.stops++; if (this.running) { this.running = false; this.onend?.(); } }
+      say(text, final = true) {
+        const res = [{ transcript: text }];
+        res.isFinal = final;
+        this.onresult?.({ resultIndex: 0, results: [res] });
+      }
+      end() { this.running = false; this.onend?.(); }
+      fail(error) { this.onerror?.({ error }); }
+    }
+    MockRecognition.instances = [];
+    window.SpeechRecognition = MockRecognition;
+  </script>
+
+  <script>
+    const tests = [];
+    const test = (name, fn) => tests.push({ name, fn });
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    function eq(actual, expected, label = "") {
+      const a = JSON.stringify(actual), e = JSON.stringify(expected);
+      if (a !== e) throw new Error(`${label} expected ${e}, got ${a}`);
+    }
+    function ok(cond, label) { if (!cond) throw new Error(label); }
+    function has(obj, expected) { for (const [k, v] of Object.entries(expected)) eq(obj?.[k], v, k); }
+
+    let pings = 0, spoken = [];
+
+    function reset() {
+      diary = []; saveDiary(diary); renderDiary();
+      pendingWeight = null; awaitingCommandUntil = 0; holdToTalk = false;
+      pings = 0; spoken = [];
+      document.getElementById("commands").innerHTML = '<li class="empty">Nothing yet</li>';
+    }
+    const last = () => diary.at(-1);
+    const say = (text) => handlePhrase(text, "test");
+    const NO_WAKE = /\b(gym|jim|gim|jym|jem|gem)\s*-?\s*(bro|bra|brah|bruh|brother)|gymbo|jimbo/i;
+
+    // ---------- parser ----------
+
+    const PARSE_CASES = [
+      ["bench press 20 kg going for 12 got 9", { exercise: "Bench press", group: "push", weight: 20, unit: "kg", target: 12, reps: 9 }],
+      ["Bench press, 20 kg. Going for 12. Got 9.", { exercise: "Bench press", weight: 20, target: 12, reps: 9 }],
+      ["squat 100 kilos for 5", { exercise: "Squat", group: "legs", weight: 100, reps: 5 }],
+      ["deadlift 140kg x 3", { exercise: "Deadlift", group: "pull", weight: 140, reps: 3 }],
+      ["leg press two hundred kilos for twelve", { exercise: "Leg press", group: "legs", weight: 200, reps: 12 }],
+      ["overhead press twenty two point five kilos got eight", { exercise: "Overhead press", weight: 22.5, reps: 8 }],
+      ["dumbbell curls 12 kg got 10", { exercise: "Bicep curl", group: "pull", weight: 12, reps: 10, equipment: "dumbbell" }],
+      ["leg curl 30 kg for 12", { exercise: "Leg curl", group: "legs", weight: 30, reps: 12 }],
+      ["romanian deadlift 60 kg for 10", { exercise: "Romanian deadlift", group: "legs", weight: 60, reps: 10 }],
+      ["incline bench 30 kg for 10", { exercise: "Incline bench press", weight: 30, reps: 10 }],
+      ["pull ups for 8", { exercise: "Pull-ups", bodyweight: true, weight: null, reps: 8 }],
+      ["barbell row 60 kg got 8", { exercise: "Row", group: "pull", weight: 60, reps: 8, equipment: "barbell" }],
+      ["lat pulldown 50 kg 10 reps", { exercise: "Lat pulldown", weight: 50, reps: 10 }],
+      ["bench 135 pounds for 5", { exercise: "Bench press", weight: 135, unit: "lb", reps: 5 }],
+      ["cable fly 15 kg for 12", { exercise: "Chest fly", weight: 15, reps: 12, equipment: "cable" }],
+      ["zercher carry 40 kg", { exercise: "Zercher carry", group: "other", weight: 40 }],
+      ["bench press going for 12", { exercise: "Bench press", weight: null, target: 12, reps: null }],
+      ["Squat 100 kg, going for 5, got 5, barbell", { exercise: "Squat", weight: 100, target: 5, reps: 5, equipment: "barbell" }],
+    ];
+    for (const [phrase, expected] of PARSE_CASES) {
+      test(`parse: "${phrase}"`, () => has(parseSet(phrase, null), expected));
+    }
+
+    test('parse: "same again" repeats the last set', () => {
+      const prev = parseSet("bench 20 kg going for 12 got 9");
+      has(parseSet("same again", prev), { exercise: "Bench press", weight: 20, reps: 9 });
+    });
+    test('parse: "same again but 22.5 kg" changes only the weight', () => {
+      const prev = parseSet("bench 20 kg going for 12 got 9");
+      has(parseSet("same again but 22.5 kg", prev), { exercise: "Bench press", weight: 22.5, reps: 9 });
+    });
+
+    // ---------- wake word ----------
+
+    const WAKE_CASES = [
+      ["gym bro bench press 20 kg got 9", "bench press 20 kg got 9"],
+      ["Gym bro, bench press 20 kg got 9", "bench press 20 kg got 9"],
+      ["GymBro. Squat 100 kg for 5", "Squat 100 kg for 5"],
+      ["Hey GymBro bench 20 kg for 8", "bench 20 kg for 8"],
+      ["Okay, gym bro squat 100 kg for 5", "squat 100 kg for 5"],
+      ["Jim bro rows 50 kg for 8", "rows 50 kg for 8"],
+      ["gym-bro deadlift 120 kg for 3", "deadlift 120 kg for 3"],
+      ["Jimbo deadlift 100 kg for 5", "deadlift 100 kg for 5"],
+      ["gym brother squat 90 kg for 5", "squat 90 kg for 5"],
+      ["gym bro gym bro bench 20 kg for 8", "bench 20 kg for 8"],
+      ["so um gym bro curls 10 kg for 12", "curls 10 kg for 12"],
+      ["I was telling my gym bro about the bench", null],
+      ["bench 20 kg for 8", null],
+      ["what weight", null],
+    ];
+    for (const [phrase, expected] of WAKE_CASES) {
+      test(`wake: "${phrase}" → ${expected === null ? "ignored" : `"${expected}"`}`, () => {
+        reset();
+        eq(extractCommand(phrase), expected);
+      });
+    }
+
+    test("wake: bare \"GymBro\" waits, then takes the next phrase without the wake word", () => {
+      reset();
+      eq(extractCommand("Gym bro."), null);
+      ok(awaitingCommandUntil > Date.now(), "should be waiting for a command");
+      eq(extractCommand("Jimbo squat 100 kg for 5"), "squat 100 kg for 5");
+    });
+    test("wake: the follow-up window expires", () => {
+      reset();
+      extractCommand("gym bro");
+      awaitingCommandUntil = Date.now() - 1;
+      eq(extractCommand("squat 100 kg for 5"), null);
+    });
+    test("wake: hold-to-talk accepts phrases with or without the wake word", () => {
+      reset();
+      holdToTalk = true;
+      eq(extractCommand("gym bro bench 20 kg for 8"), "bench 20 kg for 8");
+      eq(extractCommand("bench 20 kg for 8"), "bench 20 kg for 8");
+      eq(extractCommand("gym bro"), null);
+    });
+    test("wake: the wake word never reaches the diary or the commands list", () => {
+      reset();
+      for (const p of ["gym bro bench 20 kg for 8", "Hey GymBro, squat 100 kg for 5", "Jim bro rows 50 kg for 8",
+                       "gym bro gym bro curls 10 kg for 12", "Jimbo deadlift 100 kg for 5"]) say(p);
+      eq(diary.length, 5, "entries");
+      for (const e of diary) ok(!NO_WAKE.test(e.raw) && !NO_WAKE.test(e.exercise), `wake word in entry: ${e.raw}`);
+      ok(!NO_WAKE.test(document.getElementById("diary").textContent), "wake word shown in diary");
+      ok(!NO_WAKE.test(document.getElementById("commands").textContent), "wake word shown in commands list");
+    });
+
+    // ---------- "What weight?" ----------
+
+    test("weight: a set without a weight asks \"What weight?\"", () => {
+      reset();
+      say("gym bro bench press going for 12 got 9");
+      eq(diary.length, 1);
+      eq(last().weight, null);
+      eq(spoken, ["What weight?"]);
+      eq(document.getElementById("state").textContent, "What weight?");
+      ok(pendingWeight, "waiting for an answer");
+    });
+    test("weight: the answer fills in the last entry, no wake word needed", () => {
+      reset();
+      say("gym bro bench press going for 12 got 9");
+      say("20 kg");
+      eq(diary.length, 1, "no new entry");
+      has(last(), { exercise: "Bench press", weight: 20, reps: 9, target: 12 });
+      eq(pendingWeight, null);
+      eq(pings, 2);
+      eq(document.getElementById("state").textContent, "Updated Bench press");
+    });
+    test("weight: spoken numbers work as the answer (\"twenty two point five\")", () => {
+      reset();
+      say("gym bro overhead press got 8");
+      say("twenty two point five");
+      eq(last().weight, 22.5);
+    });
+    test("weight: the answer can include the wake word", () => {
+      reset();
+      say("gym bro squat for 5");
+      say("gym bro 100 kilos");
+      eq(diary.length, 1);
+      eq(last().weight, 100);
+    });
+    test("weight: its own \"What weight?\" echo is ignored", () => {
+      reset();
+      say("gym bro bench press got 9");
+      say("what weight");
+      ok(pendingWeight, "still waiting");
+      eq(last().weight, null);
+      say("25");
+      eq(last().weight, 25);
+    });
+    test("weight: \"skip\" logs it without a weight", () => {
+      reset();
+      say("gym bro bench press got 9");
+      say("skip");
+      eq(pendingWeight, null);
+      eq(last().weight, null);
+      eq(diary.length, 1);
+    });
+    test("weight: bodyweight moves don't ask", () => {
+      reset();
+      say("gym bro pull ups for 8");
+      eq(spoken, []);
+      eq(pendingWeight, null);
+    });
+    test("weight: an answer after the window closes is ignored", () => {
+      reset();
+      say("gym bro bench press got 9");
+      pendingWeight.until = Date.now() - 1;
+      say("20 kg");
+      eq(last().weight, null);
+      eq(diary.length, 1);
+    });
+    test("weight: a new set while waiting is logged as a new set", () => {
+      reset();
+      say("gym bro bench press got 9");
+      say("gym bro squat 100 kg for 5");
+      eq(diary.length, 2);
+      eq(diary[0].weight, null, "bench untouched");
+      has(last(), { exercise: "Squat", weight: 100 });
+      eq(pendingWeight, null);
+    });
+
+    // ---------- adding to the last entry ----------
+
+    test('amend: "add 20 kg" sets the weight on the last entry', () => {
+      reset();
+      say("gym bro bench press got 9"); say("skip");
+      say("gym bro add 20 kg");
+      eq(diary.length, 1);
+      eq(last().weight, 20);
+    });
+    test('amend: "add 25" treats a bare number as the weight', () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro add 25");
+      eq(last().weight, 25);
+    });
+    test('amend: "actually got 10" changes the reps', () => {
+      reset();
+      say("gym bro bench press 20 kg going for 12 got 9");
+      say("gym bro actually got 10");
+      has(last(), { weight: 20, reps: 10, target: 12 });
+      eq(diary.length, 1);
+    });
+    test('amend: "that was dumbbells" sets the equipment', () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro that was dumbbells");
+      eq(last().equipment, "dumbbell");
+    });
+    test('amend: "actually it was incline bench" changes the exercise', () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro actually it was incline bench");
+      has(last(), { exercise: "Incline bench press", weight: 20 });
+    });
+    test("amend: with an empty diary it doesn't create a junk entry", () => {
+      reset();
+      say("gym bro add 20 kg");
+      eq(diary.length, 0);
+      eq(document.getElementById("state").textContent, "Didn't catch that");
+    });
+    test("amend: an amendment with nothing in it changes nothing", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro also");
+      eq(diary.length, 1);
+      has(last(), { weight: 20, reps: 9 });
+    });
+    test("amend: changes are saved", () => {
+      reset();
+      say("gym bro bench press got 9"); say("skip");
+      say("gym bro add 20 kg");
+      eq(loadDiary().at(-1).weight, 20);
+    });
+
+    // ---------- diary ----------
+
+    test("diary: groups by day, newest first, with push/pull/legs badges", () => {
+      reset();
+      const y = Date.now() - 86400000;
+      diary.push({ ...parseSet("squat 100 kg for 5"), id: "a", ts: y }, { ...parseSet("leg press 200 kg for 12"), id: "b", ts: y + 1000 });
+      saveDiary(diary);
+      say("gym bro bench 20 kg for 8");
+      say("gym bro rows 50 kg for 8");
+      const days = [...document.querySelectorAll("#diary .day")];
+      eq(days.length, 2, "days");
+      eq([...days[0].querySelectorAll(".badge")].map((b) => b.textContent), ["Pull", "Push"], "today's badges");
+      eq([...days[1].querySelectorAll(".badge")].map((b) => b.textContent), ["Legs"], "yesterday's badges");
+      eq([...days[0].querySelectorAll(".ex")].map((e) => e.textContent), ["Row", "Bench press"], "newest first");
+      ok(days[0].querySelector(".ico.pull svg"), "pull icon");
+      eq(days[1].querySelector(".meta").textContent, "200 kg · 12 reps");
+    });
+    test("diary: survives a reload", () => {
+      reset();
+      say("gym bro bench 20 kg for 8");
+      say("gym bro squat 100 kg for 5");
+      eq(loadDiary().map((e) => e.exercise), ["Bench press", "Squat"]);
+    });
+    test("diary: empty state message", () => {
+      reset();
+      eq(document.querySelector("#diary .empty").textContent, "Your logged sets will appear here.");
+    });
+
+    // ---------- the live listening loop, with the mock recogniser ----------
+
+    test("mic: Start begins listening", () => {
+      reset();
+      document.getElementById("start").click();
+      eq(recognizer.starts, 1);
+      eq(wantListening, true);
+      eq(document.getElementById("state").textContent, "Listening");
+    });
+    test("mic: a spoken set is logged with a ping", () => {
+      reset();
+      recognizer.say("gym bro squat 100 kg for 5");
+      eq(diary.length, 1);
+      eq(pings, 1);
+      eq(document.getElementById("state").textContent, "Logged Squat");
+    });
+    test("mic: interim speech with the wake word shows \"Hearing you…\"", () => {
+      reset();
+      recognizer.say("gym bro sq", false);
+      eq(document.getElementById("state").textContent, "Hearing you…");
+      eq(diary.length, 0, "interim results are not logged");
+    });
+    test("mic: chatter is ignored", () => {
+      reset();
+      recognizer.say("did you see the game last night");
+      eq(diary.length, 0);
+      eq(pings, 0);
+    });
+    test("mic: restarts on its own when Chrome stops listening", async () => {
+      reset();
+      const before = recognizer.starts;
+      recognizer.end();
+      await wait(1200);
+      eq(recognizer.starts, before + 1);
+      ok(Number(document.getElementById("fRestarts").textContent) >= 1, "restart counter");
+    });
+    test("mic: Stop ends listening and does not restart", async () => {
+      reset();
+      document.getElementById("start").click();
+      eq(wantListening, false);
+      eq(document.getElementById("state").textContent, "Paused");
+      const starts = recognizer.starts;
+      await wait(1200);
+      eq(recognizer.starts, starts);
+    });
+    test("mic: hold to talk logs without the wake word", async () => {
+      reset();
+      const talk = document.getElementById("talk");
+      talk.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+      ok(recognizer.running, "listening while held");
+      recognizer.say("bench 20 kg for 8");
+      talk.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+      await wait(800);
+      eq(diary.length, 1);
+      eq(last().exercise, "Bench press");
+      eq(holdToTalk, false);
+      ok(!recognizer.running, "stopped after release");
+    });
+    test("mic: blocked microphone shows an error and stops retrying", async () => {
+      reset();
+      document.getElementById("start").click();
+      recognizer.fail("not-allowed");
+      eq(document.getElementById("state").textContent, "Mic blocked");
+      eq(wantListening, false);
+      const starts = recognizer.starts;
+      recognizer.end();
+      await wait(1200);
+      eq(recognizer.starts, starts);
+    });
+    test("typed: the Type instead box follows the same rules", () => {
+      reset();
+      const input = document.getElementById("typedText"), form = document.getElementById("typed");
+      input.value = "bench 20 kg for 8"; form.requestSubmit();
+      eq(diary.length, 0, "ignored without wake word");
+      input.value = "gymbro bench 20 kg for 8"; form.requestSubmit();
+      eq(diary.length, 1);
+      eq(input.value, "", "input cleared");
+    });
+
+    // ---------- runner ----------
+
+    async function run() {
+      const list = document.getElementById("results");
+      let failed = 0;
+      for (const t of tests) {
+        const li = document.createElement("li");
+        try { await t.fn(); li.textContent = `✓ ${t.name}`; }
+        catch (e) { failed++; li.className = "fail"; li.textContent = `✗ ${t.name}`; const s = document.createElement("small"); s.textContent = e.message; li.append(s); }
+        list.append(li);
+      }
+      reset();
+      const summary = document.getElementById("summary");
+      summary.textContent = failed ? `${failed} of ${tests.length} tests failed` : `All ${tests.length} tests passed`;
+      summary.className = failed ? "fail" : "pass";
+      window.testResults = { total: tests.length, failed, failures: [...list.querySelectorAll(".fail")].map((l) => l.textContent) };
+    }
+
+    (async () => {
+      const html = await (await fetch("index.html", { cache: "no-store" })).text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      document.getElementById("app").innerHTML = doc.querySelector("main").outerHTML;
+      try { localStorage.removeItem("gymbro.diary.v1"); } catch {}
+      for (const src of ["diary.js", "voice.js"]) {
+        await new Promise((resolve) => {
+          const s = document.createElement("script");
+          s.src = `${src}?v=${Date.now()}`;
+          s.onload = resolve;
+          document.body.append(s);
+        });
+      }
+      ping = () => { pings++; };
+      speak = (text) => { spoken.push(text); };
+      await run();
+    })();
+  </script>
+</body>
+</html>
