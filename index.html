@@ -20,7 +20,7 @@
         <span class="dot"></span>
         <div>
           <div id="state" class="state">Ready</div>
-          <div id="hint" class="hint">Tap Start, then say "GymBro" and your set</div>
+          <div id="hint" class="hint">Turn the mic on, then say "GymBro" and your set</div>
         </div>
       </section>
 
@@ -34,7 +34,7 @@
       <section class="group">
         <h2>How it works</h2>
         <ol class="steps">
-          <li><span class="num">1</span><span><b>Tap Start</b> and allow the microphone.</span></li>
+          <li><span class="num">1</span><span>Turn the <b>Mic</b> switch on (bottom right) and allow the microphone.</span></li>
           <li><span class="num">2</span><span>Say <b>"GymBro"</b> and your set, e.g. "bench, 20 kg, going for 12, got 9".</span></li>
           <li><span class="num">3</span><span>Hear the ping: it's in your diary.</span></li>
         </ol>
@@ -58,15 +58,27 @@
     </aside>
   </div>
 
-  <div class="dock" role="toolbar" aria-label="Listening controls">
-    <button id="start" class="fab primary" aria-pressed="false">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-      <span id="startLabel">Start listening</span>
-    </button>
-    <button id="talk" class="fab secondary" disabled>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>
-      <span>Hold to talk</span>
-    </button>
+  <div class="dock" role="toolbar" aria-label="Controls">
+    <div class="ctl">
+      <button id="speaker" class="round toggle on" role="switch" aria-checked="true" aria-label="Sound">
+        <svg class="if-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+        <svg class="if-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l6 6M22 9l-6 6"/></svg>
+      </button>
+      <span id="speakerLabel" class="ctl-label">Sound on</span>
+    </div>
+    <div class="ctl">
+      <button id="start" class="round toggle mic" role="switch" aria-checked="false" aria-label="Microphone">
+        <svg class="if-on" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        <svg class="if-off" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M3 3l18 18"/></svg>
+      </button>
+      <span id="startLabel" class="ctl-label">Mic off</span>
+    </div>
+    <div class="ctl">
+      <button id="talk" class="round big" aria-label="Hold to talk" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <span class="ctl-label">Hold to talk</span>
+    </div>
   </div>
 
   <script src="diary.js"></script>
