@@ -341,10 +341,16 @@ function renderDiary() {
     const list = el("ul", "entries");
     for (const e of entries) {
       const li = el("li", "entry");
+      li.dataset.id = e.id;
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      li.setAttribute("aria-label", `Edit ${e.exercise}, ${describe(e)}`);
       const body = el("div", "entry-body");
       body.append(el("div", "ex", e.exercise), el("div", "meta", describe(e)));
       const time = el("time", null, new Date(e.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-      li.append(icon(e.icon, e.group), body, time);
+      const chev = el("span", "chev");
+      chev.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+      li.append(icon(e.icon, e.group), body, time, chev);
       list.append(li);
     }
 
@@ -352,5 +358,120 @@ function renderDiary() {
     root.append(day);
   }
 }
+
+// ---------- editing and deleting ----------
+
+let editingId = null;
+let lastDeleted = null; // { entry, index } for Undo
+let toastTimer = null;
+
+const findEntry = (id) => diary.find((e) => e.id === id);
+const numOrNull = (v) => (v === "" || v == null ? null : Number(v));
+const field = (id) => document.getElementById(id);
+
+function updateEntry(id, changes) {
+  const entry = findEntry(id);
+  if (!entry) return null;
+  Object.assign(entry, changes);
+  saveDiary(diary);
+  renderDiary();
+  return entry;
+}
+
+function deleteEntry(id) {
+  const index = diary.findIndex((e) => e.id === id);
+  if (index < 0) return null;
+  const [entry] = diary.splice(index, 1);
+  lastDeleted = { entry, index };
+  saveDiary(diary);
+  renderDiary();
+  return entry;
+}
+
+function undoDelete() {
+  if (!lastDeleted) return null;
+  const { entry, index } = lastDeleted;
+  diary.splice(Math.min(index, diary.length), 0, entry);
+  lastDeleted = null;
+  saveDiary(diary);
+  renderDiary();
+  return entry;
+}
+
+function openEditor(id) {
+  const e = findEntry(id);
+  if (!e) return;
+  editingId = id;
+  field("fExercise").value = e.exercise;
+  field("fWeight").value = e.weight ?? "";
+  field("fUnit").value = e.unit ?? "kg";
+  field("fReps").value = e.reps ?? "";
+  field("fTarget").value = e.target ?? "";
+  field("fEquipment").value = e.equipment ?? "";
+  field("editor").showModal();
+}
+
+function saveEditor() {
+  const current = findEntry(editingId);
+  if (!current) return null;
+  const name = field("fExercise").value.trim() || current.exercise;
+  const changes = {
+    weight: numOrNull(field("fWeight").value),
+    unit: field("fUnit").value,
+    reps: numOrNull(field("fReps").value),
+    target: numOrNull(field("fTarget").value),
+    equipment: field("fEquipment").value || null,
+  };
+  if (name !== current.exercise) {
+    // a renamed exercise picks up its group and icon, if we know it
+    const f = parseFields(normalise(name), name);
+    Object.assign(changes, f.known
+      ? { exercise: f.exercise, group: f.group, icon: f.icon, bodyweight: f.bodyweight }
+      : { exercise: titleCase(name), group: "other", icon: "dumbbell", bodyweight: false });
+  }
+  return updateEntry(editingId, changes);
+}
+
+function showToast(text) {
+  field("toastText").textContent = text;
+  field("toast").hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 5000);
+}
+
+function hideToast() {
+  field("toast").hidden = true;
+  lastDeleted = null;
+}
+
+field("exerciseNames").append(...EXERCISES.map((e) => Object.assign(document.createElement("option"), { value: e.name })));
+
+field("diary").addEventListener("click", (ev) => {
+  const row = ev.target.closest(".entry");
+  if (row) openEditor(row.dataset.id);
+});
+field("diary").addEventListener("keydown", (ev) => {
+  const row = ev.target.closest(".entry");
+  if (row && ev.key === "Enter") openEditor(row.dataset.id);
+});
+field("editForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  saveEditor();
+  field("editor").close();
+});
+field("editCancel").addEventListener("click", () => field("editor").close());
+field("editor").addEventListener("click", (ev) => {
+  if (ev.target === field("editor")) field("editor").close(); // tap outside the sheet
+});
+field("editDelete").addEventListener("click", () => {
+  const entry = deleteEntry(editingId);
+  field("editor").close();
+  if (entry) showToast(`Deleted ${entry.exercise}`);
+});
+field("toastUndo").addEventListener("click", () => {
+  undoDelete();
+  clearTimeout(toastTimer);
+  field("toast").hidden = true;
+});
 
 renderDiary();
