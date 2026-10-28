@@ -3,70 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0d0f12">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <title>GymBro</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>GymBro</h1>
-    <span class="tag">voice spike</span>
-  </header>
+  <div class="layout">
+    <main class="main">
+      <header class="top">
+        <p class="eyebrow">Voice lifting log</p>
+        <h1>GymBro</h1>
+      </header>
 
-  <main>
-    <section class="card intro">
-      <p>Log your lifts by voice between sets, with no typing.</p>
-      <ol>
-        <li>Tap <b>Start listening</b> and allow the mic.</li>
-        <li>Say <b>"GymBro"</b> and your set, e.g. "bench, 20 kg, going for 12, got 9".</li>
-        <li>Hear the ping: it's logged.</li>
-      </ol>
-    </section>
+      <section id="status" class="status idle" aria-live="polite">
+        <span class="dot"></span>
+        <div>
+          <div id="state" class="state">Ready</div>
+          <div id="hint" class="hint">Tap Start, then say "GymBro" and your set</div>
+        </div>
+      </section>
 
-    <section id="status" class="status idle">
-      <div class="dot"></div>
-      <div>
-        <div id="state" class="state">Tap Start</div>
-        <div id="hint" class="hint">Say "GymBro, bench press, 20 kg, going for 12, got 9"</div>
-      </div>
-    </section>
+      <section>
+        <h2 class="title">Diary</h2>
+        <div id="diary"></div>
+      </section>
+    </main>
 
-    <div class="controls">
-      <button id="start" class="primary">Start listening</button>
-      <button id="talk" class="talk" disabled>Hold to talk</button>
-    </div>
+    <aside class="side">
+      <section class="group">
+        <h2>How it works</h2>
+        <ol class="steps">
+          <li><span class="num">1</span><span><b>Tap Start</b> and allow the microphone.</span></li>
+          <li><span class="num">2</span><span>Say <b>"GymBro"</b> and your set, e.g. "bench, 20 kg, going for 12, got 9".</span></li>
+          <li><span class="num">3</span><span>Hear the ping: it's in your diary.</span></li>
+        </ol>
+        <p class="tip">Forgot something? Say "GymBro, add 20 kg" or "GymBro, actually got 10".</p>
+      </section>
 
-    <section class="card">
-      <h2>Commands heard</h2>
-      <ol id="commands" class="commands"><li class="empty">Nothing yet</li></ol>
-    </section>
+      <section class="group">
+        <h2>Type a set</h2>
+        <form id="typed" class="typed">
+          <input id="typedText" autocomplete="off" placeholder="squat 100 kg for 5" aria-label="Type a set">
+          <button type="submit" aria-label="Log set">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+      </section>
 
-    <section class="card">
-      <h2>Type instead <small>(testing without a mic)</small></h2>
-      <form id="typed">
-        <input id="typedText" autocomplete="off" placeholder="gymbro squat 100 kg going for 5 got 5">
-        <button type="submit">Send</button>
-      </form>
-    </section>
+      <section class="group">
+        <h2>Recently heard</h2>
+        <ol id="commands" class="commands"><li class="empty">Nothing yet</li></ol>
+      </section>
+    </aside>
+  </div>
 
-    <section class="card">
-      <h2>Spike checks</h2>
-      <div class="checks">
-        <button id="testPing">Test ping</button>
-        <button id="testSpeak">Test voice reply</button>
-      </div>
-      <ul class="facts">
-        <li>Speech API: <b id="fSpeech">?</b></li>
-        <li>Wake lock: <b id="fWake">?</b></li>
-        <li>Recognizer restarts: <b id="fRestarts">0</b></li>
-      </ul>
-    </section>
-
-    <section class="card">
-      <h2>Diary</h2>
-      <div id="diary"></div>
-    </section>
-  </main>
+  <div class="dock" role="toolbar" aria-label="Listening controls">
+    <button id="start" class="fab primary" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      <span id="startLabel">Start listening</span>
+    </button>
+    <button id="talk" class="fab secondary" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>
+      <span>Hold to talk</span>
+    </button>
+  </div>
 
   <script src="diary.js"></script>
   <script src="voice.js"></script>
