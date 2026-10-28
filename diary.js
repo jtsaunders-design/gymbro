@@ -22,13 +22,13 @@ const EXERCISES = [
   { name: "Overhead press", re: /overhead press|shoulder press|military press|\bohp\b/, group: "push", icon: "overhead" },
   { name: "Chest press", re: /chest press/, group: "push", icon: "bench" },
   { name: "Bench press", re: /bench/, group: "push", icon: "bench" },
-  { name: "Push-ups", re: /push ?-?ups?/, group: "push", icon: "bench" },
-  { name: "Dips", re: /\bdips?\b/, group: "push", icon: "overhead" },
+  { name: "Push-ups", re: /push ?-?ups?/, group: "push", icon: "bench", bodyweight: true },
+  { name: "Dips", re: /\bdips?\b/, group: "push", icon: "overhead", bodyweight: true },
   { name: "Chest fly", re: /\bfl(y|ies)\b|pec deck/, group: "push", icon: "dumbbell" },
   { name: "Lateral raise", re: /lateral|side raise/, group: "push", icon: "dumbbell" },
   { name: "Triceps", re: /tricep|skull ?crusher|push ?down/, group: "push", icon: "dumbbell" },
   { name: "Face pull", re: /face ?pull/, group: "pull", icon: "row" },
-  { name: "Pull-ups", re: /pull ?-?ups?|chin ?-?ups?/, group: "pull", icon: "pull" },
+  { name: "Pull-ups", re: /pull ?-?ups?|chin ?-?ups?/, group: "pull", icon: "pull", bodyweight: true },
   { name: "Lat pulldown", re: /pull ?down|lat pull/, group: "pull", icon: "pull" },
   { name: "Row", re: /\brow(s|ing)?\b/, group: "pull", icon: "row" },
   { name: "Leg curl", re: /leg curl|hamstring curl/, group: "legs", icon: "leg" },
@@ -70,14 +70,24 @@ function titleCase(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function normalise(raw) {
+  return wordsToDigits(raw.toLowerCase().replace(/[,!?]|\.(?!\d)/g, " ").replace(/\s+/g, " ").trim())
+    .replace(/(\d+) point (\d+)/g, "$1.$2");
+}
+
 function parseSet(raw, last) {
-  const text = wordsToDigits(raw.toLowerCase().replace(/[,!?]/g, " ").replace(/\s+/g, " ").trim());
+  const text = normalise(raw);
 
   if (/^(same|again|same again|repeat)\b/.test(text) && last) {
     const override = text.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilos?|kilograms?|lbs?|pounds?)/);
     return { ...last, weight: override ? Number(override[1]) : last.weight, raw };
   }
 
+  return parseFields(text, raw);
+}
+
+// Pulls whatever it can out of normalised text; fields it can't find are null.
+function parseFields(text, raw) {
   const ex = EXERCISES.find((e) => e.re.test(text));
   const unitMatch = text.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilos?|kilograms?|lbs?|pounds?)\b/);
   const target = text.match(/(?:going for|aiming for|target(?: of)?|trying for)\s*(\d+)/);
@@ -106,8 +116,10 @@ function parseSet(raw, last) {
 
   return {
     exercise: name,
+    known: Boolean(ex),
     group: ex?.group ?? "other",
     icon: ex?.icon ?? "dumbbell",
+    bodyweight: Boolean(ex?.bodyweight),
     equipment: eq,
     weight,
     unit,
@@ -143,6 +155,36 @@ function addToDiary(text) {
   saveDiary(diary);
   renderDiary();
   return entry;
+}
+
+// "add 20 kg", "actually got 10", "that was dumbbells": changes to the last entry, not a new set.
+const AMEND = /^(add|added|plus|also|actually|update|change|correction|make (it|that)|it was|that was|that's|weight (was|is)?)\b/;
+
+function isAmendment(text) {
+  return AMEND.test(normalise(text));
+}
+
+// Merges the fields mentioned in `text` into the latest entry. Returns it, or null if there's nothing to change.
+function amendLast(text) {
+  const last = diary.at(-1);
+  if (!last) return null;
+  const norm = normalise(text).replace(AMEND, "").trim();
+  const f = parseFields(norm, text);
+  const changes = {};
+  if (f.weight != null) Object.assign(changes, { weight: f.weight, unit: f.unit });
+  if (f.reps != null) changes.reps = f.reps;
+  if (f.target != null) changes.target = f.target;
+  if (f.equipment) changes.equipment = f.equipment;
+  if (f.known) Object.assign(changes, { exercise: f.exercise, group: f.group, icon: f.icon, bodyweight: f.bodyweight });
+  if (!Object.keys(changes).length) {
+    const n = norm.match(/(\d+(?:\.\d+)?)/);
+    if (n) changes.weight = Number(n[1]);
+  }
+  if (!Object.keys(changes).length) return null;
+  Object.assign(last, changes);
+  saveDiary(diary);
+  renderDiary();
+  return last;
 }
 
 function describe(e) {
