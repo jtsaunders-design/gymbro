@@ -6,7 +6,10 @@ const $ = (id) => document.getElementById(id);
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 // "GymBro" gets misheard a lot, so accept the common variants.
-const WAKE = /\b(?:hey\s+)?(?:gym|jim|jem|gem)\s*-?\s*(?:bro|bros|brow|bra|bro's)\b[,.!?]?\s*/i;
+const WAKE_SRC = String.raw`\b(?:(?:hey|hi|ok|okay)[,.]?\s+)?(?:(?:gym|jim|gim|jym|jem|gem)\s*-?\s*(?:bro|bros|bro's|brow|bra|brah|bruh|brother)|gymbo|jimbo)\b[,.!?]*\s*`;
+const WAKE = new RegExp(WAKE_SRC, "i");
+const WAKE_ALL = new RegExp(WAKE_SRC, "gi");
+const MAX_WORDS_BEFORE_WAKE = 2; // allows "okay so GymBro…", ignores chatter that mentions a gym bro mid-sentence
 const FOLLOW_UP_MS = 6000; // after a bare "GymBro", the next phrase counts as the command
 
 let recognizer = null;
@@ -87,35 +90,101 @@ document.addEventListener("visibilitychange", () => {
 
 // ---------- command handling ----------
 
+// Removes every mention of the wake word so it never ends up in the diary.
+function stripWake(text) {
+  return text.replace(WAKE_ALL, " ").replace(/^[\s,.!?]+|[\s,]+$/g, "").replace(/\s+/g, " ");
+}
+
 // Returns the command text if this phrase is addressed to GymBro, else null.
 function extractCommand(phrase) {
-  if (holdToTalk) return phrase.trim();
+  if (holdToTalk) return stripWake(phrase) || null;
   const m = phrase.match(WAKE);
-  if (m) {
-    const rest = phrase.slice(m.index + m[0].length).trim();
+  const wordsBefore = m ? phrase.slice(0, m.index).trim().split(/\s+/).filter(Boolean).length : Infinity;
+  if (m && wordsBefore <= MAX_WORDS_BEFORE_WAKE) {
+    const rest = stripWake(phrase.slice(m.index + m[0].length));
     if (rest) return rest;
     awaitingCommandUntil = Date.now() + FOLLOW_UP_MS;
     setState("awake", "Yes?", "Listening for your set…");
     log("wake word alone, waiting for command");
     return null;
   }
-  if (Date.now() < awaitingCommandUntil) return phrase.trim();
+  if (Date.now() < awaitingCommandUntil) return stripWake(phrase) || null;
   return null;
+}
+
+// After "What weight?" the next phrase is the answer, no wake word needed.
+const ANSWER_MS = 10000;
+const SKIP = /\b(skip|no weight|body ?weight|none|forget it|never ?mind|cancel)\b/i;
+let pendingWeight = null; // { entryId, until }
+
+function backToListening(delay = 1800) {
+  setTimeout(() => wantListening && !pendingWeight && setState("listening", "Listening", 'Say "GymBro, …"'), delay);
+}
+
+function askForWeight(entry) {
+  pendingWeight = { entryId: entry.id, until: Date.now() + ANSWER_MS };
+  setState("awake", "What weight?", `${entry.exercise}: say the weight, or "skip"`);
+  speak("What weight?");
+}
+
+// Returns true if the phrase answered the pending "What weight?" question.
+function answerWeight(phrase, source) {
+  if (!pendingWeight) return false;
+  if (Date.now() > pendingWeight.until || diary.at(-1)?.id !== pendingWeight.entryId) {
+    pendingWeight = null;
+    return false;
+  }
+  const reply = stripWake(phrase);
+  if (SKIP.test(reply)) {
+    pendingWeight = null;
+    setState("logged", "No weight", "Logged without a weight");
+    backToListening();
+    return true;
+  }
+  const norm = normalise(reply);
+  if (!/\d/.test(norm)) return false; // not an answer (or our own "What weight?" echoing back): keep waiting
+  if (parseFields(norm, reply).known) return false; // a whole new set, not an answer
+  const entry = amendLast(reply);
+  if (!entry || entry.weight == null) return false;
+  pendingWeight = null;
+  showCommand(reply, `${source}, answer`);
+  ping();
+  setState("logged", `Updated ${entry.exercise}`, describe(entry));
+  backToListening();
+  return true;
 }
 
 function handlePhrase(phrase, source) {
   log(`heard (${source}): "${phrase}"`);
+  if (answerWeight(phrase, source)) return;
   const command = extractCommand(phrase);
   if (!command) {
-    if (Date.now() >= awaitingCommandUntil && wantListening) setState("listening", "Listening", 'Say "GymBro, …"');
+    if (Date.now() >= awaitingCommandUntil && wantListening && !pendingWeight) setState("listening", "Listening", 'Say "GymBro, …"');
     return;
   }
   awaitingCommandUntil = 0;
+  pendingWeight = null;
   showCommand(command, source);
+
+  if (isAmendment(command)) {
+    const entry = amendLast(command);
+    if (!entry) {
+      setState("error", "Didn't catch that", diary.length ? 'Try "add 20 kg" or "actually got 10"' : "Log a set first");
+      backToListening(2500);
+      return;
+    }
+    ping();
+    setState("logged", `Updated ${entry.exercise}`, describe(entry));
+    if (entry.weight == null && !entry.bodyweight) askForWeight(entry);
+    else backToListening();
+    return;
+  }
+
   const entry = addToDiary(command);
   ping();
   setState("logged", `Logged ${entry.exercise}`, describe(entry));
-  setTimeout(() => wantListening && setState("listening", "Listening", 'Say "GymBro, …"'), 1800);
+  if (entry.weight == null && !entry.bodyweight) askForWeight(entry);
+  else backToListening();
 }
 
 // ---------- speech recognition ----------
