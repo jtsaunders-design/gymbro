@@ -63,6 +63,8 @@
       pendingWeight = null; awaitingCommandUntil = 0; holdToTalk = false;
       pings = 0; spoken = [];
       document.getElementById("commands").innerHTML = '<li class="empty">Nothing yet</li>';
+      if (document.getElementById("editor").open) document.getElementById("editor").close();
+      document.getElementById("toast").hidden = true;
     }
     const last = () => diary.at(-1);
     const say = (text) => handlePhrase(text, "test");
@@ -472,6 +474,142 @@
         window.speechSynthesis.speak = realSay;
         soundOn = true;
       }
+    });
+
+    const press = (target, opts = {}) => {
+      const down = new KeyboardEvent("keydown", { code: "Space", key: " ", bubbles: true, cancelable: true, ...opts });
+      target.dispatchEvent(down);
+      target.dispatchEvent(new KeyboardEvent("keyup", { code: "Space", key: " ", bubbles: true, cancelable: true, ...opts }));
+      return down;
+    };
+    // ---------- editing and deleting ----------
+
+    const row = (i = 0) => document.querySelectorAll("#diary .entry")[i];
+    const editor = () => document.getElementById("editor");
+    const setField = (id, value) => { document.getElementById(id).value = value; };
+
+    test("edit: tapping a set opens the editor filled in", () => {
+      reset();
+      say("gym bro bench press 20 kg going for 12 got 9");
+      row().click();
+      ok(editor().open, "sheet open");
+      eq(document.getElementById("fExercise").value, "Bench press");
+      eq(document.getElementById("fWeight").value, "20");
+      eq(document.getElementById("fReps").value, "9");
+      eq(document.getElementById("fTarget").value, "12");
+      editor().close();
+    });
+    test("edit: Save updates the set and keeps it", () => {
+      reset();
+      say("gym bro bench press 20 kg going for 12 got 9");
+      row().click();
+      setField("fWeight", "22.5"); setField("fReps", "10"); setField("fEquipment", "barbell");
+      document.getElementById("editForm").requestSubmit();
+      ok(!editor().open, "sheet closed");
+      has(last(), { exercise: "Bench press", weight: 22.5, reps: 10, target: 12, equipment: "barbell" });
+      eq(loadDiary().at(-1).weight, 22.5, "saved");
+      eq(document.querySelector("#diary .meta").textContent, "22.5 kg · 10 / 12 reps · barbell");
+    });
+    test("edit: renaming the exercise updates its group and icon", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      row().click();
+      setField("fExercise", "squat");
+      document.getElementById("editForm").requestSubmit();
+      has(last(), { exercise: "Squat", group: "legs", icon: "squat" });
+      eq(document.querySelector("#diary .badge").textContent, "Legs");
+    });
+    test("edit: clearing the weight removes it", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      row().click();
+      setField("fWeight", "");
+      document.getElementById("editForm").requestSubmit();
+      eq(last().weight, null);
+    });
+    test("edit: Cancel changes nothing", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      row().click();
+      setField("fWeight", "99");
+      document.getElementById("editCancel").click();
+      ok(!editor().open, "sheet closed");
+      eq(last().weight, 20);
+    });
+    test("delete: bins the set and offers Undo", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro squat 100 kg for 5");
+      row(1).click(); // the bench press (newest is first)
+      document.getElementById("editDelete").click();
+      ok(!editor().open, "sheet closed");
+      eq(diary.map((e) => e.exercise), ["Squat"]);
+      eq(loadDiary().length, 1, "saved");
+      ok(!document.getElementById("toast").hidden, "undo toast shown");
+      eq(document.getElementById("toastText").textContent, "Deleted Bench press");
+    });
+    test("delete: Undo puts it back where it was", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      say("gym bro squat 100 kg for 5");
+      row(1).click();
+      document.getElementById("editDelete").click();
+      document.getElementById("toastUndo").click();
+      eq(diary.map((e) => e.exercise), ["Bench press", "Squat"]);
+      eq(loadDiary().length, 2, "saved");
+      ok(document.getElementById("toast").hidden, "toast gone");
+    });
+    test("delete: binning the last set empties the diary", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      row().click();
+      document.getElementById("editDelete").click();
+      eq(diary.length, 0);
+      eq(document.querySelector("#diary .empty").textContent, "Your logged sets will appear here.");
+      hideToast();
+    });
+    test("edit: Space in the editor doesn't toggle the mic", () => {
+      reset();
+      say("gym bro bench press 20 kg got 9");
+      row().click();
+      const before = wantListening;
+      press(document.getElementById("editCancel"));
+      eq(wantListening, before);
+      editor().close();
+    });
+
+    test("keyboard: Space turns the mic on and off", () => {
+      reset();
+      const before = wantListening;
+      const e = press(document.body);
+      eq(wantListening, !before, "first press");
+      ok(e.defaultPrevented, "page doesn't scroll");
+      press(document.body);
+      eq(wantListening, before, "second press");
+    });
+    test("keyboard: Cmd+Space and Ctrl+Space also work", () => {
+      reset();
+      const before = wantListening;
+      press(document.body, { metaKey: true });
+      eq(wantListening, !before, "Cmd+Space");
+      press(document.body, { ctrlKey: true });
+      eq(wantListening, before, "Ctrl+Space");
+    });
+    test("keyboard: Space while typing a set types a space instead", () => {
+      reset();
+      const before = wantListening;
+      const e = press(document.getElementById("typedText"));
+      eq(wantListening, before);
+      ok(!e.defaultPrevented, "space still types");
+    });
+    test("keyboard: holding Space doesn't flicker the mic", () => {
+      reset();
+      const before = wantListening;
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", bubbles: true, cancelable: true }));
+      for (let i = 0; i < 5; i++) document.body.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", repeat: true, bubbles: true, cancelable: true }));
+      eq(wantListening, !before, "one toggle only");
+      press(document.body);
+      eq(wantListening, before);
     });
 
     test("typed: a typed set doesn't need the wake word", () => {
