@@ -54,6 +54,10 @@ button.talk.held { background: var(--listen); color: var(--bg); }
 
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
 
+.intro p { margin: 0 0 8px; font-weight: 600; }
+.intro ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; display: grid; gap: 4px; }
+.intro b { color: var(--text); }
+
 .commands { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
 .commands li { font-size: 18px; }
 .commands li small { display: block; color: var(--muted); font-size: 12px; }
